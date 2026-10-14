@@ -1,0 +1,190 @@
+import React, { useState, useEffect } from 'react';
+import { Header } from '../components/Header';
+import { TodayAvailabilityCard } from '../components/TodayAvailabilityCard';
+import { AlternativeOfficerCard } from '../components/AlternativeOfficerCard';
+import { HearingSlots } from '../components/HearingSlots';
+import { OfficerProfiles } from '../components/OfficerProfiles';
+import { PublicNotices } from '../components/PublicNotices';
+import { OfficeInfo } from '../components/OfficeInfo';
+import { ChittorTechSection } from '../components/ChittorTechSection';
+import { Footer } from '../components/Footer';
+import { DataService } from '../lib/supabase';
+import type { Availability, AvailabilitySlot, OfficerProfile, PublicNotice } from '../types/database';
+import { AlertTriangle, RefreshCw, Calendar } from 'lucide-react';
+import { getTodayHindiDate } from '../utils/dateHindi';
+
+interface PublicPortalProps {
+  onOpenAdmin: () => void;
+}
+
+export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin }) => {
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
+
+  const [availability, setAvailability] = useState<Availability | null>(null);
+  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
+  const [alternativeOfficer, setAlternativeOfficer] = useState<OfficerProfile | undefined>();
+  const [officers, setOfficers] = useState<OfficerProfile[]>([]);
+  const [notices, setNotices] = useState<PublicNotice[]>([]);
+
+  const loadData = async (isManualRefresh = false) => {
+    if (isManualRefresh) setRefreshing(true);
+    setDataError(null);
+
+    try {
+      const [availRes, officersRes, noticesRes] = await Promise.all([
+        DataService.getTodayAvailability(),
+        DataService.getOfficers(),
+        DataService.getPublicNotices(),
+      ]);
+
+      setAvailability(availRes.availability);
+      setSlots(availRes.slots);
+      setAlternativeOfficer(availRes.alternativeOfficer);
+      setOfficers(officersRes);
+      setNotices(noticesRes);
+    } catch (err: unknown) {
+      console.error('Failed to load data', err);
+      setDataError('नवीनतम जनसुनवाई स्थिति लोड करने में विलंब हो रहा है। डेटा स्थानीय संग्रह से प्रदर्शित किया जा रहा है।');
+    } finally {
+      setLoading(false);
+      if (isManualRefresh) {
+        setTimeout(() => setRefreshing(false), 500);
+      }
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const todayHindi = getTodayHindiDate();
+
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: '#F0F4F8' }}>
+      {/* ── Header ── */}
+      <Header onRefresh={() => loadData(true)} isRefreshing={refreshing} onOpenAdmin={onOpenAdmin} />
+
+      {/* ── Hero Band ── */}
+      <div
+        style={{
+          background: 'linear-gradient(160deg, #0B1728 0%, #1D3557 60%, #2A4A7F 100%)',
+          paddingTop: '20px',
+          paddingBottom: '28px',
+        }}
+      >
+        <div className="page-container">
+          {/* Today's date pill */}
+          <div className="flex items-center gap-2 mb-3">
+            <div
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-devanagari font-medium"
+              style={{ background: 'rgba(201,162,39,0.15)', border: '1px solid rgba(201,162,39,0.3)', color: '#E0B535' }}
+            >
+              <Calendar className="w-3 h-3" />
+              <span>{todayHindi}</span>
+            </div>
+          </div>
+
+          {/* Main tagline */}
+          <h2 className="font-devanagari font-bold text-white leading-tight mb-1"
+            style={{ fontSize: 'clamp(18px, 5vw, 24px)' }}>
+            आमजन में विश्वास,<br />
+            <span style={{ color: '#E0B535' }}>जनसुनवाई में सुविधा</span>
+          </h2>
+          <p className="font-devanagari text-slate-300 text-xs sm:text-sm leading-relaxed mt-2 max-w-sm">
+            जनसुनवाई की जानकारी, अब आसानी से — चित्तौड़गढ़ के नागरिकों हेतु ChittorTech की एक डिजिटल पहल।
+          </p>
+        </div>
+      </div>
+
+      {/* ── Negative space overlap card area ── */}
+      <div className="flex-1" style={{ marginTop: '-14px' }}>
+        <div className="page-container pb-10">
+
+          {/* Connection error banner */}
+          {dataError && (
+            <div
+              className="mb-5 p-3.5 rounded-2xl flex items-start gap-3 text-xs font-devanagari animate-fade-in"
+              style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#78350F' }}
+            >
+              <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <strong className="font-semibold">सत्यापन सूचना: </strong>
+                {dataError}
+              </div>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="py-20 text-center animate-fade-in">
+              <div
+                className="inline-flex items-center gap-3 px-6 py-4 rounded-2xl"
+                style={{ background: '#ffffff', border: '1px solid #E2E8F0', boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}
+              >
+                <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
+                <p className="text-sm text-slate-500 font-devanagari">
+                  आधिकारिक जनसुनवाई स्थिति लोड हो रही है...
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-5 sm:space-y-6">
+              {/* 1. Availability Hero Card */}
+              {availability && (
+                <div className="animate-fade-in-up stagger-1">
+                  <TodayAvailabilityCard availability={availability} slots={slots} />
+                </div>
+              )}
+
+              {/* 2. Alternative Officer (when SP unavailable or designated) */}
+              {availability && (
+                <div className="animate-fade-in-up stagger-2">
+                  <AlternativeOfficerCard
+                    officer={alternativeOfficer}
+                    timing={availability.alternative_timing}
+                    isSpUnavailable={availability.status === 'unavailable'}
+                  />
+                </div>
+              )}
+
+              {/* 3. Hearing Slots */}
+              {availability && (
+                <div className="animate-fade-in-up stagger-3">
+                  <HearingSlots
+                    slots={slots}
+                    timingType={availability.timing_type}
+                    isUnavailable={availability.status === 'unavailable'}
+                  />
+                </div>
+              )}
+
+              {/* 4. Public Notices */}
+              <div className="animate-fade-in-up stagger-4">
+                <PublicNotices notices={notices} />
+              </div>
+
+              {/* 5. Officer Profiles */}
+              <div className="animate-fade-in-up stagger-5">
+                <OfficerProfiles officers={officers} />
+              </div>
+
+              {/* 6. Office Info & Emergency */}
+              <div className="animate-fade-in-up" style={{ animationDelay: '0.40s' }}>
+                <OfficeInfo />
+              </div>
+
+              {/* 7. ChittorTech Section */}
+              <div className="animate-fade-in-up" style={{ animationDelay: '0.46s' }}>
+                <ChittorTechSection />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Footer ── */}
+      <Footer />
+    </div>
+  );
+};

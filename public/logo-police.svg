@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f2b48" />
+      <stop offset="100%" stop-color="#071526" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE082" />
+      <stop offset="50%" stop-color="#FFB300" />
+      <stop offset="100%" stop-color="#FF8F00" />
+    </linearGradient>
+  </defs>
+  <!-- Outer Ring -->
+  <circle cx="60" cy="60" r="56" fill="none" stroke="url(#goldGrad)" stroke-width="3" stroke-dasharray="4 2"/>
+  <!-- Inner Circle Shield -->
+  <circle cx="60" cy="60" r="51" fill="url(#shieldGrad)" stroke="#FFB300" stroke-width="1.5"/>
+  <!-- Star Burst / Ashoka Star Motif -->
+  <polygon points="60,20 63,32 75,32 65,39 69,50 60,43 51,50 55,39 45,32 57,32" fill="url(#goldGrad)"/>
+  <!-- Two Crossed Swords / Scepters Symbolizing Justice & Protection -->
+  <path d="M40,78 L80,48 M40,80 L44,82 M76,46 L80,48" stroke="#FFE082" stroke-width="2" stroke-linecap="round"/>
+  <path d="M80,78 L40,48 M80,80 L76,82 M44,46 L40,48" stroke="#FFE082" stroke-width="2" stroke-linecap="round"/>
+  <!-- Shield Center -->
+  <circle cx="60" cy="63" r="16" fill="#0c1e33" stroke="url(#goldGrad)" stroke-width="1.5"/>
+  <text x="60" y="67" font-family="'Noto Sans Devanagari', sans-serif" font-weight="bold" font-size="11" fill="#FFFFFF" text-anchor="middle">सेवा</text>
+  <!-- Circular Text -->
+  <path id="curveTop" d="M25,60 A35,35 0 0,1 95,60" fill="none"/>
+  <text font-family="'Noto Sans Devanagari', sans-serif" font-size="7.5" font-weight="700" fill="#FFD54F" letter-spacing="1">
+    <textPath href="#curveTop" startOffset="50%" text-anchor="middle">
+      राजस्थान पुलिस • चित्तौड़गढ़
+    </textPath>
+  </text>
+  <path id="curveBottom" d="M95,60 A35,35 0 0,1 25,60" fill="none"/>
+  <text font-family="'Noto Sans Devanagari', sans-serif" font-size="6.5" font-weight="600" fill="#FFE082" letter-spacing="0.5">
+    <textPath href="#curveBottom" startOffset="50%" text-anchor="middle">
+      सदा सर्वत्र सुरक्षा
+    </textPath>
+  </text>
+</svg>
