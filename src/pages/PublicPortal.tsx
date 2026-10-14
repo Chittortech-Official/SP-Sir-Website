@@ -19,7 +19,6 @@ interface PublicPortalProps {
 
 export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin }) => {
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
 
   const [availability, setAvailability] = useState<Availability | null>(null);
@@ -28,8 +27,8 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin }) => {
   const [officers, setOfficers] = useState<OfficerProfile[]>([]);
   const [notices, setNotices] = useState<PublicNotice[]>([]);
 
-  const loadData = async (isManualRefresh = false) => {
-    if (isManualRefresh) setRefreshing(true);
+  const loadData = async (showInitialLoader = false) => {
+    if (showInitialLoader) setLoading(true);
     setDataError(null);
 
     try {
@@ -49,36 +48,56 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin }) => {
       setDataError('नवीनतम जनसुनवाई स्थिति लोड करने में विलंब हो रहा है। डेटा स्थानीय संग्रह से प्रदर्शित किया जा रहा है।');
     } finally {
       setLoading(false);
-      if (isManualRefresh) {
-        setTimeout(() => setRefreshing(false), 500);
-      }
     }
   };
 
   useEffect(() => {
-    loadData();
+    // Initial fetch on mount
+    loadData(true);
+
+    // Automatic periodic refresh every 45 seconds (no manual button needed)
+    const intervalId = setInterval(() => {
+      loadData(false);
+    }, 45000);
+
+    // Automatic refresh when citizen returns to this tab
+    const handleTabActive = () => {
+      if (document.visibilityState === 'visible') {
+        loadData(false);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleTabActive);
+    window.addEventListener('focus', handleTabActive);
+
+    // Clean up timers and listeners
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleTabActive);
+      window.removeEventListener('focus', handleTabActive);
+    };
   }, []);
 
   const todayHindi = getTodayHindiDate();
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#F0F4F8' }}>
-      {/* ── Header ── */}
-      <Header onRefresh={() => loadData(true)} isRefreshing={refreshing} onOpenAdmin={onOpenAdmin} />
+      {/* ── Redesigned Streamlined Header ── */}
+      <Header />
 
       {/* ── Hero Band ── */}
       <div
         style={{
           background: 'linear-gradient(160deg, #0B1728 0%, #1D3557 60%, #2A4A7F 100%)',
-          paddingTop: '20px',
-          paddingBottom: '28px',
+          paddingTop: '18px',
+          paddingBottom: '26px',
         }}
       >
         <div className="page-container">
           {/* Today's date pill */}
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-2.5">
             <div
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-devanagari font-medium"
+              className="flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-devanagari font-medium"
               style={{ background: 'rgba(201,162,39,0.15)', border: '1px solid rgba(201,162,39,0.3)', color: '#E0B535' }}
             >
               <Calendar className="w-3 h-3" />
@@ -87,25 +106,27 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin }) => {
           </div>
 
           {/* Main tagline */}
-          <h2 className="font-devanagari font-bold text-white leading-tight mb-1"
-            style={{ fontSize: 'clamp(18px, 5vw, 24px)' }}>
+          <h2
+            className="font-devanagari font-bold text-white leading-tight mb-1"
+            style={{ fontSize: 'clamp(18px, 5vw, 24px)' }}
+          >
             आमजन में विश्वास,<br />
             <span style={{ color: '#E0B535' }}>जनसुनवाई में सुविधा</span>
           </h2>
-          <p className="font-devanagari text-slate-300 text-xs sm:text-sm leading-relaxed mt-2 max-w-sm">
+          <p className="font-devanagari text-slate-300 text-xs sm:text-sm leading-relaxed mt-1.5 max-w-sm">
             जनसुनवाई की जानकारी, अब आसानी से — चित्तौड़गढ़ के नागरिकों हेतु ChittorTech की एक डिजिटल पहल।
           </p>
         </div>
       </div>
 
-      {/* ── Negative space overlap card area ── */}
+      {/* ── Availability & Public Information Content ── */}
       <div className="flex-1" style={{ marginTop: '-14px' }}>
         <div className="page-container pb-10">
 
-          {/* Connection error banner */}
+          {/* Connection status notice */}
           {dataError && (
             <div
-              className="mb-5 p-3.5 rounded-2xl flex items-start gap-3 text-xs font-devanagari animate-fade-in"
+              className="mb-4 p-3.5 rounded-2xl flex items-start gap-3 text-xs font-devanagari animate-fade-in"
               style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#78350F' }}
             >
               <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
@@ -129,8 +150,8 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin }) => {
               </div>
             </div>
           ) : (
-            <div className="space-y-5 sm:space-y-6">
-              {/* 1. Availability Hero Card */}
+            <div className="space-y-4 sm:space-y-5">
+              {/* 1. Availability Hero Card (Highest Prominence) */}
               {availability && (
                 <div className="animate-fade-in-up stagger-1">
                   <TodayAvailabilityCard availability={availability} slots={slots} />
@@ -174,7 +195,7 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin }) => {
                 <OfficeInfo />
               </div>
 
-              {/* 7. ChittorTech Section */}
+              {/* 7. ChittorTech Initiative Section */}
               <div className="animate-fade-in-up" style={{ animationDelay: '0.46s' }}>
                 <ChittorTechSection />
               </div>
@@ -183,8 +204,8 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin }) => {
         </div>
       </div>
 
-      {/* ── Footer ── */}
-      <Footer />
+      {/* ── Premium Compact Footer with Discreet Admin Link ── */}
+      <Footer onOpenAdmin={onOpenAdmin} />
     </div>
   );
 };
