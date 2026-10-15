@@ -11,17 +11,27 @@ export function App() {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check initial route from hash and path
+    // Check initial route from hash and path, and cleanly remove any `#`
     const determineRoute = () => {
       const hash = window.location.hash.toLowerCase();
       const path = window.location.pathname.toLowerCase();
 
+      let targetRoute: AppRoute = 'public';
+      let cleanPath = '/';
+
       if (hash === '#admin' || path === '/admin') {
-        setCurrentRoute('admin');
+        targetRoute = 'admin';
+        cleanPath = '/admin';
       } else if (hash === '#initiative' || path === '/initiative') {
-        setCurrentRoute('initiative');
-      } else {
-        setCurrentRoute('public');
+        targetRoute = 'initiative';
+        cleanPath = '/initiative';
+      }
+
+      setCurrentRoute(targetRoute);
+
+      // Clean the address bar automatically: strips #admin or #anything to pure clean path
+      if (window.location.hash || window.location.pathname !== cleanPath) {
+        window.history.replaceState(null, '', cleanPath);
       }
     };
 
@@ -52,15 +62,16 @@ export function App() {
 
   const handleAdminLoginSuccess = () => {
     setIsAdminAuthenticated(true);
+    if (window.location.pathname !== '/admin' || window.location.hash) {
+      window.history.replaceState(null, '', '/admin');
+    }
   };
 
   const handleAdminLogout = () => {
     localStorage.removeItem('sp_admin_session');
     localStorage.removeItem('sp_admin_email');
     setIsAdminAuthenticated(false);
-    // Stay on the admin login page
-    setCurrentRoute('admin');
-    window.location.hash = 'admin';
+    navigateTo('admin');
   };
 
   // 1. Admin Route (Login or Dashboard)
