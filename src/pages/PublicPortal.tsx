@@ -71,7 +71,7 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin, onOpenI
       };
     }
 
-    // Supabase Realtime subscription for ALL 4 tables
+    // Supabase Realtime subscription: ONLY for real-time dynamic tables (availability, slots, notices)
     let channel: any = null;
     if (supabase) {
       channel = supabase
@@ -83,9 +83,6 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin, onOpenI
           loadData(false);
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'public_notices' }, () => {
-          loadData(false);
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'officer_profiles' }, () => {
           loadData(false);
         })
         .subscribe();

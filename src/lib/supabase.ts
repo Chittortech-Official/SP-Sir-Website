@@ -459,7 +459,6 @@ export const DataService = {
     const currentOfficers = await this.getOfficers();
     const updated = [...currentOfficers, newOfficer];
     setStored(STORAGE_KEYS.OFFICERS, updated);
-    notifyAvailabilityUpdated();
     return { success: true, data: newOfficer };
   },
 
@@ -488,7 +487,6 @@ export const DataService = {
       }
     }
 
-    notifyAvailabilityUpdated();
     return { success: true };
   },
 
@@ -505,7 +503,6 @@ export const DataService = {
       }
     }
 
-    notifyAvailabilityUpdated();
     return true;
   },
 
@@ -535,7 +532,6 @@ export const DataService = {
       }
     }
 
-    notifyAvailabilityUpdated();
     return { success: true };
   },
 
