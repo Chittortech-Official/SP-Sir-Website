@@ -57,6 +57,27 @@ export interface PublicNotice {
   updated_at?: string;
 }
 
+export type DirectoryCategory = 'senior' | 'circle' | 'station' | 'branch' | 'outpost';
+
+export interface PoliceDirectoryRecord {
+  id: string;
+  name: string;
+  post: string;
+  category: DirectoryCategory;
+  circle_name?: string | null;
+  location?: string | null;
+  std_code?: string | null;
+  office_phone?: string | null;
+  residence_phone?: string | null;
+  mobile?: string | null;
+  email?: string | null;
+  alt_email?: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface AdminAuditLog {
   id: string;
   admin_user: string;
@@ -65,3 +86,4 @@ export interface AdminAuditLog {
   details: string;
   created_at: string;
 }
+

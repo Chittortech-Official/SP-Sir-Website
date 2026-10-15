@@ -17,9 +17,11 @@ import {
   Edit2,
   UserPlus,
   X,
-  Phone
+  Phone,
+  Building2
 } from 'lucide-react';
 import { DataService, isSupabaseConfigured, getTodayISODate } from '../lib/supabase';
+import { DirectoryManager } from './DirectoryManager';
 import type { 
   Availability,
   AvailabilitySlot, 
@@ -83,7 +85,7 @@ const STATUS_LABELS: Record<AvailabilityStatus, { title: string; subtitle: strin
 };
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onViewPublic }) => {
-  const [activeTab, setActiveTab] = useState<'availability' | 'notices' | 'officers'>('availability');
+  const [activeTab, setActiveTab] = useState<'availability' | 'notices' | 'officers' | 'directory'>('availability');
   
   // Current Live State from Database
   const [liveAvailability, setLiveAvailability] = useState<Availability | null>(null);
@@ -687,21 +689,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
         <div className="max-w-6xl mx-auto px-4 py-3 sm:py-3.5">
           <div className="flex flex-col md:flex-row items-center justify-between gap-3 relative">
             
-            {/* Left: Dual Logos (Police + ChittorTech) */}
-            <div className="flex items-center gap-2.5 md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2">
-              <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-[#07111E] border-2 border-amber-400 p-0.5 shadow-md flex-shrink-0">
+            {/* Left: Rajasthan Police Official Emblem (Prominent Circle) */}
+            <div className="flex items-center md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2">
+              <div className="w-14 h-14 sm:w-15 sm:h-15 rounded-full overflow-hidden flex items-center justify-center bg-[#07111E] border-2 border-[#C9A227] shadow-lg p-0.5 flex-shrink-0 transition-transform hover:scale-105">
                 <img 
                   src="/rajasthan-police-logo.webp" 
-                  alt="Rajasthan Police" 
-                  className="w-full h-full object-cover scale-110" 
-                />
-              </div>
-              <div className="w-px h-6 bg-slate-700/80"></div>
-              <div className="w-9 h-9 rounded-xl overflow-hidden bg-white border border-amber-400/80 p-0.5 flex items-center justify-center shadow-md flex-shrink-0">
-                <img 
-                  src="/chittortech_logo.png" 
-                  alt="ChittorTech Logo" 
-                  className="w-full h-full object-cover scale-125" 
+                  alt="राजस्थान पुलिस प्रतीक चिह्न" 
+                  className="w-full h-full object-cover scale-115" 
                 />
               </div>
             </div>
@@ -792,6 +786,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
             >
               <Users className="w-4 h-4" />
               <span>अधिकारी प्रोफाइल</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('directory')}
+              className={`py-2.5 px-3 border-b-2 text-xs sm:text-sm font-bold font-devanagari whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'directory'
+                  ? 'border-amber-400 text-amber-300'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              <span>थाना व निर्देशिका</span>
             </button>
           </div>
         </div>
@@ -1882,6 +1888,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
               </div>
             </div>
           </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════
+            TAB 4: POLICE DIRECTORY MANAGEMENT (Live Database)
+        ═══════════════════════════════════════════════════════ */}
+        {activeTab === 'directory' && (
+          <DirectoryManager />
         )}
       </main>
     </div>

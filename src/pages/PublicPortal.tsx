@@ -15,9 +15,13 @@ import { getTodayHindiDate } from '../utils/dateHindi';
 interface PublicPortalProps {
   onOpenAdmin: () => void;
   onOpenInitiative?: () => void;
+  onOpenDirectory?: () => void;
 }
 
-export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin, onOpenInitiative }) => {
+export const PublicPortal: React.FC<PublicPortalProps> = ({
+  onOpenAdmin,
+  onOpenInitiative,
+}) => {
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
 
@@ -88,12 +92,7 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin, onOpenI
         .subscribe();
     }
 
-    // Automatic periodic refresh every 15 seconds for high responsiveness
-    const intervalId = setInterval(() => {
-      loadData(false);
-    }, 15000);
-
-    // Automatic refresh when citizen returns to this tab
+    // Light fallback: Refresh only when citizen returns/focuses the tab
     const handleTabActive = () => {
       if (document.visibilityState === 'visible') {
         loadData(false);
@@ -103,9 +102,8 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin, onOpenI
     document.addEventListener('visibilitychange', handleTabActive);
     window.addEventListener('focus', handleTabActive);
 
-    // Clean up timers and listeners
+    // Clean up listeners
     return () => {
-      clearInterval(intervalId);
       window.removeEventListener('sp_availability_changed', handleInstantSync);
       window.removeEventListener('storage', handleInstantSync);
       if (bc) bc.close();

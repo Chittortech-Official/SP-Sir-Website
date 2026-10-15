@@ -15,7 +15,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenInitiative }) => {
         boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.04)',
       }}
     >
-      <div className="page-container pt-6 pb-12 sm:pt-8 sm:pb-14">
+      <div className="page-container pt-6 pb-24 sm:pt-8 sm:pb-28">
         {/* Center Branding - Clean White Background Style with good spacing */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 text-center sm:text-left mb-4 mt-1">
           {/* Official Police Emblem */}

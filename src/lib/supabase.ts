@@ -4,8 +4,10 @@ import type {
   AvailabilitySlot, 
   OfficerProfile, 
   PublicNotice, 
-  AdminAuditLog 
+  AdminAuditLog,
+  PoliceDirectoryRecord 
 } from '../types/database';
+import { POLICE_DIRECTORY_DATA } from '../data/policeDirectory';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -125,6 +127,7 @@ const STORAGE_KEYS = {
   OFFICERS: 'sp_portal_officers_v2',
   NOTICES: 'sp_portal_notices_v2',
   AUDIT: 'sp_portal_audit_logs_v2',
+  DIRECTORY: 'sp_portal_police_directory_v1',
 };
 
 const getStored = <T>(key: string, fallback: T): T => {
@@ -537,5 +540,190 @@ export const DataService = {
 
   async getAuditLogs(): Promise<AdminAuditLog[]> {
     return [];
+  },
+
+  // ── Police Directory Database Methods ──
+  async getPoliceDirectory(includeInactive: boolean = false): Promise<PoliceDirectoryRecord[]> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('police_directory')
+          .select('*')
+          .order('display_order', { ascending: true })
+          .order('created_at', { ascending: true });
+
+        if (!includeInactive) {
+          query = query.eq('is_active', true);
+        }
+
+        const { data, error } = await query;
+        if (!error && data && data.length > 0) {
+          setStored(STORAGE_KEYS.DIRECTORY, data);
+          return data as PoliceDirectoryRecord[];
+        }
+      } catch (err) {
+        console.warn('Supabase getPoliceDirectory error, using local fallback', err);
+      }
+    }
+
+    // LocalStorage or fallback from POLICE_DIRECTORY_DATA
+    const cached = getStored<PoliceDirectoryRecord[] | null>(STORAGE_KEYS.DIRECTORY, null);
+    if (cached && cached.length > 0) {
+      return includeInactive ? cached : cached.filter(c => c.is_active);
+    }
+
+    // Default static mapping of all 92 contacts
+    const defaultRecords: PoliceDirectoryRecord[] = POLICE_DIRECTORY_DATA.map((item, idx) => ({
+      id: item.id,
+      name: item.name,
+      post: item.post,
+      category: item.category,
+      circle_name: item.circleName || null,
+      location: item.location || null,
+      std_code: item.stdCode || null,
+      office_phone: item.officePhone || null,
+      residence_phone: item.residencePhone || null,
+      mobile: item.mobile || null,
+      email: item.email || null,
+      alt_email: item.altEmail || null,
+      display_order: idx + 1,
+      is_active: true,
+    }));
+
+    return defaultRecords;
+  },
+
+  async createPoliceContact(contact: Omit<PoliceDirectoryRecord, 'id' | 'created_at' | 'updated_at'>): Promise<{ success: boolean; contact?: PoliceDirectoryRecord; error?: string }> {
+    const newId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `dir-${Date.now()}`;
+    const newRecord: PoliceDirectoryRecord = {
+      ...contact,
+      id: newId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('police_directory')
+          .insert({
+            name: contact.name,
+            post: contact.post,
+            category: contact.category,
+            circle_name: contact.circle_name || null,
+            location: contact.location || null,
+            std_code: contact.std_code || null,
+            office_phone: contact.office_phone || null,
+            residence_phone: contact.residence_phone || null,
+            mobile: contact.mobile || null,
+            email: contact.email || null,
+            alt_email: contact.alt_email || null,
+            display_order: contact.display_order ?? 100,
+            is_active: contact.is_active ?? true
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          notifyAvailabilityUpdated();
+          return { success: true, contact: data as PoliceDirectoryRecord };
+        }
+      } catch (err: any) {
+        console.error('Supabase createPoliceContact error', err);
+        return { success: false, error: err.message };
+      }
+    }
+
+    // Fallback to local storage
+    const current = await this.getPoliceDirectory(true);
+    setStored(STORAGE_KEYS.DIRECTORY, [newRecord, ...current]);
+    notifyAvailabilityUpdated();
+    return { success: true, contact: newRecord };
+  },
+
+  async updatePoliceContact(id: string, updates: Partial<PoliceDirectoryRecord>): Promise<{ success: boolean; error?: string }> {
+    if (supabase && isValidUUID(id)) {
+      try {
+        const payload: any = {
+          ...updates,
+          updated_at: new Date().toISOString()
+        };
+        delete payload.id;
+        delete payload.created_at;
+
+        const { error } = await supabase
+          .from('police_directory')
+          .update(payload)
+          .eq('id', id);
+
+        if (error) throw error;
+      } catch (err: any) {
+        console.error('Supabase updatePoliceContact error', err);
+        return { success: false, error: err.message };
+      }
+    }
+
+    const current = await this.getPoliceDirectory(true);
+    const updated = current.map(c => c.id === id ? { ...c, ...updates, updated_at: new Date().toISOString() } : c);
+    setStored(STORAGE_KEYS.DIRECTORY, updated);
+    notifyAvailabilityUpdated();
+    return { success: true };
+  },
+
+  async deletePoliceContact(id: string): Promise<boolean> {
+    if (supabase && isValidUUID(id)) {
+      try {
+        const { error } = await supabase
+          .from('police_directory')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
+      } catch (err) {
+        console.error('Supabase deletePoliceContact error', err);
+      }
+    }
+
+    const current = await this.getPoliceDirectory(true);
+    const updated = current.filter(c => c.id !== id);
+    setStored(STORAGE_KEYS.DIRECTORY, updated);
+    notifyAvailabilityUpdated();
+    return true;
+  },
+
+  async seedDefaultPoliceDirectory(): Promise<{ success: boolean; count: number; error?: string }> {
+    if (!supabase) {
+      return { success: false, count: 0, error: 'Supabase client is not connected' };
+    }
+
+    try {
+      const recordsToInsert = POLICE_DIRECTORY_DATA.map((item, idx) => ({
+        name: item.name,
+        post: item.post,
+        category: item.category,
+        circle_name: item.circleName || null,
+        location: item.location || null,
+        std_code: item.stdCode || null,
+        office_phone: item.officePhone || null,
+        residence_phone: item.residencePhone || null,
+        mobile: item.mobile || null,
+        email: item.email || null,
+        alt_email: item.altEmail || null,
+        display_order: idx + 1,
+        is_active: true
+      }));
+
+      const { data, error } = await supabase
+        .from('police_directory')
+        .insert(recordsToInsert)
+        .select();
+
+      if (error) throw error;
+      notifyAvailabilityUpdated();
+      return { success: true, count: data?.length || recordsToInsert.length };
+    } catch (err: any) {
+      console.error('Seed directory error', err);
+      return { success: false, count: 0, error: err.message };
+    }
   }
 };

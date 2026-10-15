@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import { PublicPortal } from './pages/PublicPortal';
+import { DirectoryPage } from './pages/DirectoryPage';
 import { InitiativePage } from './pages/InitiativePage';
 import { AdminLogin } from './components/AdminLogin';
 import { AdminDashboard } from './components/AdminDashboard';
+import { BottomNav } from './components/BottomNav';
+import type { PublicTab } from './components/BottomNav';
 
-type AppRoute = 'public' | 'admin' | 'initiative';
+type AppRoute = 'admin' | PublicTab;
 
 export function App() {
-  const [currentRoute, setCurrentRoute] = useState<AppRoute>('public');
+  const [currentRoute, setCurrentRoute] = useState<AppRoute>('jansunwai');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -16,20 +19,26 @@ export function App() {
       const hash = window.location.hash.toLowerCase();
       const path = window.location.pathname.toLowerCase();
 
-      let targetRoute: AppRoute = 'public';
+      let targetRoute: AppRoute = 'jansunwai';
       let cleanPath = '/';
 
       if (hash === '#admin' || path === '/admin') {
         targetRoute = 'admin';
         cleanPath = '/admin';
-      } else if (hash === '#initiative' || path === '/initiative') {
+      } else if (hash === '#directory' || path === '/directory' || hash === '#contact' || path === '/contact') {
+        targetRoute = 'directory';
+        cleanPath = '/directory';
+      } else if (hash === '#initiative' || path === '/initiative' || hash === '#about' || path === '/about') {
         targetRoute = 'initiative';
         cleanPath = '/initiative';
+      } else {
+        targetRoute = 'jansunwai';
+        cleanPath = '/';
       }
 
       setCurrentRoute(targetRoute);
 
-      // Clean the address bar automatically: strips #admin or #anything to pure clean path
+      // Clean the address bar automatically: strips #hash or dirty path to pure clean path
       if (window.location.hash || window.location.pathname !== cleanPath) {
         window.history.replaceState(null, '', cleanPath);
       }
@@ -53,7 +62,11 @@ export function App() {
 
   const navigateTo = (route: AppRoute) => {
     setCurrentRoute(route);
-    const targetPath = route === 'admin' ? '/admin' : route === 'initiative' ? '/initiative' : '/';
+    let targetPath = '/';
+    if (route === 'admin') targetPath = '/admin';
+    else if (route === 'directory') targetPath = '/directory';
+    else if (route === 'initiative') targetPath = '/initiative';
+
     if (window.location.pathname !== targetPath || window.location.hash) {
       window.history.pushState(null, '', targetPath);
     }
@@ -80,34 +93,57 @@ export function App() {
       return (
         <AdminLogin
           onSuccess={handleAdminLoginSuccess}
-          onBackToPublic={() => navigateTo('public')}
+          onBackToPublic={() => navigateTo('jansunwai')}
         />
       );
     }
     return (
       <AdminDashboard
         onLogout={handleAdminLogout}
-        onViewPublic={() => navigateTo('public')}
+        onViewPublic={() => navigateTo('jansunwai')}
       />
     );
   }
 
-  // 2. Initiative Dedicated Full Page
-  if (currentRoute === 'initiative') {
-    return (
-      <InitiativePage
-        onBack={() => navigateTo('public')}
-        onOpenAdmin={() => navigateTo('admin')}
-      />
-    );
-  }
+  // 2. Citizen Views with Persistent Fixed Bottom Navigation
+  const publicTab: PublicTab =
+    currentRoute === 'directory' || currentRoute === 'initiative'
+      ? currentRoute
+      : 'jansunwai';
 
-  // 3. Default: Citizen Public Portal
   return (
-    <PublicPortal
-      onOpenAdmin={() => navigateTo('admin')}
-      onOpenInitiative={() => navigateTo('initiative')}
-    />
+    <div className="relative min-h-screen bg-slate-50 flex flex-col">
+      {/* Active Tab View */}
+      <div className="flex-1 pb-16">
+        {publicTab === 'jansunwai' && (
+          <PublicPortal
+            onOpenAdmin={() => navigateTo('admin')}
+            onOpenInitiative={() => navigateTo('initiative')}
+            onOpenDirectory={() => navigateTo('directory')}
+          />
+        )}
+
+        {publicTab === 'directory' && (
+          <DirectoryPage
+            onOpenAdmin={() => navigateTo('admin')}
+            onOpenInitiative={() => navigateTo('initiative')}
+          />
+        )}
+
+        {publicTab === 'initiative' && (
+          <InitiativePage
+            onBack={() => navigateTo('jansunwai')}
+            onOpenAdmin={() => navigateTo('admin')}
+          />
+        )}
+      </div>
+
+      {/* Persistent Mobile Bottom Navigation Bar */}
+      <BottomNav
+        currentTab={publicTab}
+        onTabChange={(tab) => navigateTo(tab)}
+      />
+    </div>
   );
 }
 
