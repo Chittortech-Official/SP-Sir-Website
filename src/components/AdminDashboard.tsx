@@ -8,15 +8,16 @@ import {
   Trash2, 
   Bell, 
   Users, 
-  QrCode, 
-  History, 
   Check, 
-  Download,
   AlertCircle,
   Eye,
   CheckCircle2,
   XCircle,
-  UserCheck
+  UserCheck,
+  Edit2,
+  UserPlus,
+  X,
+  Phone
 } from 'lucide-react';
 import { DataService, isSupabaseConfigured, getTodayISODate } from '../lib/supabase';
 import type { 
@@ -25,10 +26,8 @@ import type {
   AvailabilityStatus, 
   TimingType, 
   OfficerProfile, 
-  PublicNotice, 
-  AdminAuditLog 
+  PublicNotice 
 } from '../types/database';
-import { QRCodeSVG } from 'qrcode.react';
 import { getTodayHindiDate } from '../utils/dateHindi';
 import { ActionFeedbackModal } from './ActionFeedbackModal';
 export type ModalType = 'confirm' | 'success' | 'danger' | 'info';
@@ -84,7 +83,7 @@ const STATUS_LABELS: Record<AvailabilityStatus, { title: string; subtitle: strin
 };
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onViewPublic }) => {
-  const [activeTab, setActiveTab] = useState<'availability' | 'notices' | 'officers' | 'qr' | 'logs'>('availability');
+  const [activeTab, setActiveTab] = useState<'availability' | 'notices' | 'officers'>('availability');
   
   // Current Live State from Database
   const [liveAvailability, setLiveAvailability] = useState<Availability | null>(null);
@@ -100,15 +99,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
   // Unsaved changes tracker
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Officers, Notices, Logs
+  // Officers & Notices
   const [officers, setOfficers] = useState<OfficerProfile[]>([]);
   const [notices, setNotices] = useState<PublicNotice[]>([]);
-  const [logs, setLogs] = useState<AdminAuditLog[]>([]);
 
-  // Notice Form State
+  // Notice Form State (New)
   const [newNoticeTitle, setNewNoticeTitle] = useState('');
   const [newNoticeMsg, setNewNoticeMsg] = useState('');
   const [newNoticePriority, setNewNoticePriority] = useState<'normal' | 'high'>('normal');
+
+  // Notice Edit State
+  const [editingNotice, setEditingNotice] = useState<PublicNotice | null>(null);
+  const [editNoticeTitle, setEditNoticeTitle] = useState('');
+  const [editNoticeMsg, setEditNoticeMsg] = useState('');
+  const [editNoticePriority, setEditNoticePriority] = useState<'normal' | 'high'>('normal');
+
+  // Officer Add & Edit State
+  const [isAddingOfficer, setIsAddingOfficer] = useState(false);
+  const [newOfficerName, setNewOfficerName] = useState('');
+  const [newOfficerDesignation, setNewOfficerDesignation] = useState('');
+  const [newOfficerPhone, setNewOfficerPhone] = useState('');
+  const [newOfficerDescription, setNewOfficerDescription] = useState('');
+  const [newOfficerOrder, setNewOfficerOrder] = useState<number>(1);
+
+  const [editingOfficer, setEditingOfficer] = useState<OfficerProfile | null>(null);
+  const [editOfficerName, setEditOfficerName] = useState('');
+  const [editOfficerDesignation, setEditOfficerDesignation] = useState('');
+  const [editOfficerPhone, setEditOfficerPhone] = useState('');
+  const [editOfficerDescription, setEditOfficerDescription] = useState('');
+  const [editOfficerOrder, setEditOfficerOrder] = useState<number>(1);
 
   // UI feedback states
   const [saving, setSaving] = useState(false);
@@ -134,7 +153,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
       const { availability: avail, slots: availSlots } = await DataService.getTodayAvailability();
       const allOfficers = await DataService.getOfficers();
       const allNotices = await DataService.getPublicNotices();
-      const allLogs = await DataService.getAuditLogs();
 
       setLiveAvailability(avail);
       setStatus(avail.status);
@@ -145,7 +163,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
       setSlots(availSlots);
       setOfficers(allOfficers);
       setNotices(allNotices);
-      setLogs(allLogs);
       setHasUnsavedChanges(false);
     } catch (e) {
       console.error('Error loading admin data', e);
@@ -378,6 +395,60 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
     });
   };
 
+  // ── ACTION 3.1: Start & Cancel Notice Editing ──
+  const handleStartEditNotice = (notice: PublicNotice) => {
+    setEditingNotice(notice);
+    setEditNoticeTitle(notice.title);
+    setEditNoticeMsg(notice.message);
+    setEditNoticePriority(notice.priority as any);
+  };
+
+  const handleCancelEditNotice = () => {
+    setEditingNotice(null);
+    setEditNoticeTitle('');
+    setEditNoticeMsg('');
+  };
+
+  // ── ACTION 3.2: Save Edited Notice ──
+  const handleSaveEditNotice = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingNotice || !editNoticeTitle.trim() || !editNoticeMsg.trim()) return;
+
+    setModalState({
+      isOpen: true,
+      type: 'confirm',
+      title: 'सार्वजनिक सूचना संशोधित करें?',
+      message: `क्या आप "${editNoticeTitle}" में किए गए बदलावों को सार्वजनिक पोर्टल पर तुरंत लाइव अपडेट करना चाहते हैं?`,
+      confirmText: 'हाँ, अपडेट करें',
+      cancelText: 'रद्द करें',
+      confirmColor: 'teal',
+      onCancel: closeModal,
+      onConfirm: async () => {
+        setModalState(prev => ({ ...prev, isLoading: true }));
+        await DataService.saveNotice({
+          id: editingNotice.id,
+          title: editNoticeTitle.trim(),
+          message: editNoticeMsg.trim(),
+          published: true,
+          priority: editNoticePriority,
+          publish_at: editingNotice.publish_at || new Date().toISOString()
+        });
+
+        handleCancelEditNotice();
+        await loadAllData();
+
+        setModalState({
+          isOpen: true,
+          type: 'success',
+          title: 'Updated!',
+          message: 'सार्वजनिक सूचना सफलतापूर्वक संशोधित कर दी गई है।',
+          confirmText: 'OK',
+          onClose: closeModal,
+        });
+      }
+    });
+  };
+
   // ── ACTION 4: Delete Notice with Confirmation Modal ──
   const triggerDeleteNoticeModal = (id: string, noticeTitle: string) => {
     setModalState({
@@ -406,7 +477,145 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
     });
   };
 
-  // ── ACTION 5: Save Officers with Confirmation Modal ──
+  // ── ACTION 5.1: Start & Cancel Add Officer ──
+  const handleStartAddOfficer = () => {
+    setIsAddingOfficer(true);
+    setEditingOfficer(null);
+    setNewOfficerName('');
+    setNewOfficerDesignation('');
+    setNewOfficerPhone('');
+    setNewOfficerDescription('');
+    setNewOfficerOrder(officers.length + 1);
+  };
+
+  const handleCancelAddOfficer = () => {
+    setIsAddingOfficer(false);
+  };
+
+  // ── ACTION 5.2: Save New Officer to Database ──
+  const handleSaveNewOfficerSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOfficerName.trim() || !newOfficerDesignation.trim()) return;
+
+    setModalState({
+      isOpen: true,
+      type: 'confirm',
+      title: 'नया अधिकारी जोड़ें?',
+      message: `क्या आप "${newOfficerName} (${newOfficerDesignation})" को अधिकारी सूची में जोड़ना चाहते हैं? यह सार्वजनिक पोर्टल पर दिखाई देगा।`,
+      confirmText: 'हाँ, जोड़ें',
+      cancelText: 'रद्द करें',
+      confirmColor: 'teal',
+      onCancel: closeModal,
+      onConfirm: async () => {
+        setModalState(prev => ({ ...prev, isLoading: true }));
+        await DataService.addOfficer({
+          name: newOfficerName.trim(),
+          designation: newOfficerDesignation.trim(),
+          phone: newOfficerPhone.trim(),
+          description: newOfficerDescription.trim(),
+          is_active: true,
+          display_order: Number(newOfficerOrder) || (officers.length + 1)
+        });
+
+        handleCancelAddOfficer();
+        await loadAllData();
+
+        setModalState({
+          isOpen: true,
+          type: 'success',
+          title: 'Updated!',
+          message: 'नया अधिकारी प्रोफाइल सफलतापूर्वक जोड़ दिया गया है।',
+          confirmText: 'OK',
+          onClose: closeModal,
+        });
+      }
+    });
+  };
+
+  // ── ACTION 5.3: Start & Cancel Edit Officer ──
+  const handleStartEditOfficer = (officer: OfficerProfile) => {
+    setEditingOfficer(officer);
+    setIsAddingOfficer(false);
+    setEditOfficerName(officer.name);
+    setEditOfficerDesignation(officer.designation);
+    setEditOfficerPhone(officer.phone);
+    setEditOfficerDescription(officer.description || '');
+    setEditOfficerOrder(officer.display_order || 1);
+  };
+
+  const handleCancelEditOfficer = () => {
+    setEditingOfficer(null);
+  };
+
+  // ── ACTION 5.4: Save Edited Officer to Database ──
+  const handleSaveEditOfficerSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingOfficer || !editOfficerName.trim() || !editOfficerDesignation.trim()) return;
+
+    setModalState({
+      isOpen: true,
+      type: 'confirm',
+      title: 'अधिकारी प्रोफाइल अपडेट करें?',
+      message: `क्या आप "${editOfficerName}" के विवरण में किए गए बदलाव सुरक्षित करना चाहते हैं?`,
+      confirmText: 'हाँ, अपडेट करें',
+      cancelText: 'रद्द करें',
+      confirmColor: 'teal',
+      onCancel: closeModal,
+      onConfirm: async () => {
+        setModalState(prev => ({ ...prev, isLoading: true }));
+        await DataService.updateOfficer({
+          ...editingOfficer,
+          name: editOfficerName.trim(),
+          designation: editOfficerDesignation.trim(),
+          phone: editOfficerPhone.trim(),
+          description: editOfficerDescription.trim(),
+          display_order: Number(editOfficerOrder) || 1
+        });
+
+        handleCancelEditOfficer();
+        await loadAllData();
+
+        setModalState({
+          isOpen: true,
+          type: 'success',
+          title: 'Updated!',
+          message: 'अधिकारी प्रोफाइल सफलतापूर्वक अपडेट कर दी गई है।',
+          confirmText: 'OK',
+          onClose: closeModal,
+        });
+      }
+    });
+  };
+
+  // ── ACTION 5.5: Delete Officer with Confirmation Modal ──
+  const triggerDeleteOfficerModal = (officer: OfficerProfile) => {
+    setModalState({
+      isOpen: true,
+      type: 'danger',
+      title: 'अधिकारी हटाएं?',
+      message: `क्या आप "${officer.name} (${officer.designation})" को अधिकारी सूची से हटाना चाहते हैं?`,
+      confirmText: 'हाँ, हटाएं',
+      cancelText: 'रद्द करें',
+      confirmColor: 'rose',
+      onCancel: closeModal,
+      onConfirm: async () => {
+        setModalState(prev => ({ ...prev, isLoading: true }));
+        await DataService.deleteOfficer(officer.id);
+        await loadAllData();
+
+        setModalState({
+          isOpen: true,
+          type: 'success',
+          title: 'Updated!',
+          message: 'अधिकारी प्रोफाइल सफलतापूर्वक हटा दी गई है।',
+          confirmText: 'OK',
+          onClose: closeModal,
+        });
+      }
+    });
+  };
+
+  // ── ACTION 5.6: Batch Save Officers to Database ──
   const triggerSaveOfficersModal = () => {
     setModalState({
       isOpen: true,
@@ -417,7 +626,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
       cancelText: 'रद्द करें',
       confirmColor: 'teal',
       onCancel: closeModal,
-      onConfirm: () => {
+      onConfirm: async () => {
+        setModalState(prev => ({ ...prev, isLoading: true }));
+        await DataService.saveOfficers(officers);
+        await loadAllData();
+
         setModalState({
           isOpen: true,
           type: 'success',
@@ -448,7 +661,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
     });
   };
 
-  const publicUrl = window.location.origin;
   const todayHindi = getTodayHindiDate();
   const selectedAltOfficer = officers.find(o => o.id === alternativeOfficerId);
 
@@ -470,113 +682,116 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
         onClose={modalState.onClose || closeModal}
       />
 
-      {/* ── Top Admin Header ── */}
-      <header className="bg-[#0B1728] text-white border-b-2 border-amber-500 sticky top-0 z-30 shadow-md">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <img src="/rajasthan-police-logo.webp" alt="Police Logo" className="w-9 h-9" />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-amber-400 font-bold uppercase tracking-wider">
-                  PA / स्टाफ डैशबोर्ड
+      {/* ── Top Admin Header with Centered Official Title & Dual Branding ── */}
+      <header className="bg-[#0B1728] text-white border-b-2 border-amber-500 sticky top-0 z-30 shadow-lg">
+        <div className="max-w-6xl mx-auto px-4 py-3 sm:py-3.5">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-3 relative">
+            
+            {/* Left: Dual Logos (Police + ChittorTech) */}
+            <div className="flex items-center gap-2.5 md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2">
+              <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-[#07111E] border-2 border-amber-400 p-0.5 shadow-md flex-shrink-0">
+                <img 
+                  src="/rajasthan-police-logo.webp" 
+                  alt="Rajasthan Police" 
+                  className="w-full h-full object-cover scale-110" 
+                />
+              </div>
+              <div className="w-px h-6 bg-slate-700/80"></div>
+              <div className="w-9 h-9 rounded-xl overflow-hidden bg-white border border-amber-400/80 p-0.5 flex items-center justify-center shadow-md flex-shrink-0">
+                <img 
+                  src="/chittortech_logo.png" 
+                  alt="ChittorTech Logo" 
+                  className="w-full h-full object-cover scale-125" 
+                />
+              </div>
+            </div>
+
+            {/* Center: Main Office Title & Badges - Centered & Highly Visible */}
+            <div className="w-full text-center md:px-44">
+              <div className="inline-flex items-center justify-center gap-2 flex-wrap mb-1">
+                <span className="text-[11px] sm:text-xs font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40 shadow-xs">
+                  PA / गोपनीय शाखा डैशबोर्ड
                 </span>
                 {isSupabaseConfigured ? (
-                  <span className="inline-flex items-center gap-1.5 bg-emerald-950 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-700">
+                  <span className="inline-flex items-center gap-1.5 bg-emerald-950 text-emerald-300 text-[10px] sm:text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/50 shadow-xs">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                     डेटाबेस लाइव कनेक्टेड
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 bg-amber-950 text-amber-300 text-[10px] px-2 py-0.5 rounded-full border border-amber-700">
+                  <span className="inline-flex items-center gap-1 bg-amber-950 text-amber-300 text-[10px] sm:text-[11px] px-2.5 py-0.5 rounded-full border border-amber-700">
                     लोकल मोड
                   </span>
                 )}
               </div>
-              <h1 className="text-sm sm:text-base font-bold font-devanagari">
+
+              <h1 className="text-lg sm:text-xl md:text-2xl font-black text-white font-devanagari tracking-tight drop-shadow-sm leading-snug">
                 पुलिस अधीक्षक कार्यालय, चित्तौड़गढ़
               </h1>
+              <p className="text-[11px] sm:text-xs text-slate-300 font-devanagari font-medium mt-0.5">
+                दैनिक जनसुनवाई एवं प्रशासनिक नियंत्रण पोर्टल
+              </p>
             </div>
-          </div>
 
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={onViewPublic}
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 transition-colors"
-            >
-              <span>पब्लिक पोर्टल</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={triggerLogoutModal}
-              className="flex items-center gap-1 bg-rose-600/80 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-              title="लॉगआउट"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">लॉगआउट</span>
-            </button>
+            {/* Right: Action Buttons (Public Portal & Logout) */}
+            <div className="flex items-center gap-2 md:absolute md:right-0 md:top-1/2 md:-translate-y-1/2 flex-shrink-0">
+              <button
+                onClick={onViewPublic}
+                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-700 shadow-sm transition-all hover:scale-102 cursor-pointer"
+                title="पब्लिक पोर्टल देखें"
+              >
+                <span>पब्लिक पोर्टल</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={triggerLogoutModal}
+                className="flex items-center gap-1 bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all hover:scale-102 cursor-pointer"
+                title="लॉगआउट"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">लॉगआउट</span>
+              </button>
+            </div>
+
           </div>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Tab Navigation - Centered & Clean */}
         <div className="bg-[#070F1C] px-4 overflow-x-auto border-t border-slate-800">
-          <div className="max-w-5xl mx-auto flex space-x-1 sm:space-x-4">
+          <div className="max-w-5xl mx-auto flex justify-center space-x-2 sm:space-x-6">
             <button
               onClick={() => setActiveTab('availability')}
-              className={`py-2.5 px-3 border-b-2 text-xs font-semibold font-devanagari whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+              className={`py-2.5 px-3 border-b-2 text-xs sm:text-sm font-bold font-devanagari whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'availability'
                   ? 'border-amber-400 text-amber-300'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Clock className="w-3.5 h-3.5" />
+              <Clock className="w-4 h-4" />
               <span>आज की जनसुनवाई (1-Click)</span>
             </button>
 
             <button
               onClick={() => setActiveTab('notices')}
-              className={`py-2.5 px-3 border-b-2 text-xs font-semibold font-devanagari whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+              className={`py-2.5 px-3 border-b-2 text-xs sm:text-sm font-bold font-devanagari whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'notices'
                   ? 'border-amber-400 text-amber-300'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Bell className="w-3.5 h-3.5" />
-              <span>सूचनाएं ({notices.length})</span>
+              <Bell className="w-4 h-4" />
+              <span>सार्वजनिक सूचनाएं ({notices.length})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('officers')}
-              className={`py-2.5 px-3 border-b-2 text-xs font-semibold font-devanagari whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+              className={`py-2.5 px-3 border-b-2 text-xs sm:text-sm font-bold font-devanagari whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'officers'
                   ? 'border-amber-400 text-amber-300'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Users className="w-3.5 h-3.5" />
+              <Users className="w-4 h-4" />
               <span>अधिकारी प्रोफाइल</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('qr')}
-              className={`py-2.5 px-3 border-b-2 text-xs font-semibold font-devanagari whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-                activeTab === 'qr'
-                  ? 'border-amber-400 text-amber-300'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <QrCode className="w-3.5 h-3.5" />
-              <span>पोस्टर QR कोड</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('logs')}
-              className={`py-2.5 px-3 border-b-2 text-xs font-semibold font-devanagari whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-                activeTab === 'logs'
-                  ? 'border-amber-400 text-amber-300'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <History className="w-3.5 h-3.5" />
-              <span>ऑडिट लॉग</span>
             </button>
           </div>
         </div>
@@ -590,6 +805,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
         ═══════════════════════════════════════════════════════ */}
         {activeTab === 'availability' && (
           <div className="space-y-5">
+
+            {/* ── Non-Technical Staff Guide Box ── */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50/70 rounded-2xl p-4 sm:p-5 border border-blue-200 text-slate-800 shadow-xs">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5 font-bold text-sm shadow-xs">
+                  ℹ️
+                </div>
+                <div className="flex-1 text-xs font-devanagari space-y-1.5">
+                  <div className="font-extrabold text-sm text-blue-950">
+                    इस पेज का उपयोग कैसे करें? (दैनिक जनसुनवाई गाइड)
+                  </div>
+                  <p className="text-slate-700 leading-relaxed font-medium">
+                    <strong>उद्देश्य:</strong> प्रतिदिन पुलिस अधीक्षक (SP) महोदय की जनसुनवाई स्थिति को मात्र 1-क्लिक में अपडेट करने के लिए। आपके द्वारा किया गया बदलाव तुरंत पूरे जिले के नागरिकों को लाइव दिखाई देता है।
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11.5px]">
+                    <div className="bg-white/90 p-2.5 rounded-xl border border-blue-100 shadow-2xs">
+                      <strong className="text-blue-900 block mb-0.5">1. स्थिति चुनें:</strong>
+                      'उपलब्ध हैं', 'उपलब्ध नहीं हैं', या 'समय परिवर्तित' में से उचित बटन दबाएं। संदेश अपने आप सेट हो जाएगा।
+                    </div>
+                    <div className="bg-white/90 p-2.5 rounded-xl border border-blue-100 shadow-2xs">
+                      <strong className="text-blue-900 block mb-0.5">2. समय / विकल्प:</strong>
+                      यदि समय बदला है तो समय बदलें। यदि सर अनुपलब्ध हैं तो वैकल्पिक अधिकारी (Addl SP / DySP) चुनें।
+                    </div>
+                    <div className="bg-white/90 p-2.5 rounded-xl border border-blue-100 shadow-2xs">
+                      <strong className="text-blue-900 block mb-0.5">3. स्थिति लागू करें:</strong>
+                      नीचे <strong>'स्थिति तुरंत लागू करें'</strong> बटन दबाकर 'हाँ' पर क्लिक करें। यह तुरंत लाइव हो जाएगा।
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Current Live Status Card */}
             {liveAvailability && (
@@ -1046,10 +1292,124 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
         )}
 
         {/* ═══════════════════════════════════════════════════════
-            TAB 2: PUBLIC NOTICES
+            TAB 2: PUBLIC NOTICES (Add & Edit Enabled)
         ═══════════════════════════════════════════════════════ */}
         {activeTab === 'notices' && (
           <div className="space-y-6">
+
+            {/* ── Non-Technical Staff Guide Box ── */}
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50/70 rounded-2xl p-4 sm:p-5 border border-amber-200 text-slate-800 shadow-xs">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5 font-bold text-sm shadow-xs">
+                  📢
+                </div>
+                <div className="flex-1 text-xs font-devanagari space-y-1.5">
+                  <div className="font-extrabold text-sm text-amber-950">
+                    सूचनाएं कैसे जारी व संपादित करें? (नोटिस गाइड)
+                  </div>
+                  <p className="text-slate-700 leading-relaxed font-medium">
+                    <strong>उद्देश्य:</strong> जनसुनवाई से जुड़े जरूरी निर्देश, अवकाश की सूचना, अथवा आवश्यक दस्तावेज लाने के आदेश नागरिकों के मोबाइल पर सीधे प्रसारित करने के लिए।
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11.5px]">
+                    <div className="bg-white/90 p-2.5 rounded-xl border border-amber-100 shadow-2xs">
+                      <strong className="text-amber-900 block mb-0.5">1. नई सूचना जारी करें:</strong>
+                      शीर्षक व विस्तृत संदेश लिखकर नीचे 'सूचना प्रकाशित करें' बटन दबाएं।
+                    </div>
+                    <div className="bg-white/90 p-2.5 rounded-xl border border-amber-100 shadow-2xs">
+                      <strong className="text-amber-900 block mb-0.5">2. संपादित करें (Edit):</strong>
+                      किसी भी पुरानी सूचना के सामने 'संपादित करें' बटन दबाकर संशोधन करें।
+                    </div>
+                    <div className="bg-white/90 p-2.5 rounded-xl border border-amber-100 shadow-2xs">
+                      <strong className="text-amber-900 block mb-0.5">3. हटाएं (Delete):</strong>
+                      सूचना की आवश्यकता समाप्त होने पर लाल 'कचरा' बटन से तुरंत हटा दें।
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── NOTICE EDIT FORM (Shown when editing a notice) ── */}
+            {editingNotice && (
+              <div className="bg-amber-50/80 rounded-2xl p-5 border-2 border-amber-400 shadow-md animate-in fade-in duration-200">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold text-amber-950 font-devanagari flex items-center gap-1.5">
+                    <Edit2 className="w-4 h-4 text-amber-600" />
+                    <span>सूचना संपादित करें (Edit Public Notice):</span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleCancelEditNotice}
+                    className="text-slate-500 hover:text-slate-800 p-1 rounded-lg transition-colors cursor-pointer"
+                    title="रद्द करें"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveEditNotice} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
+                      सूचना का शीर्षक:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editNoticeTitle}
+                      onChange={(e) => setEditNoticeTitle(e.target.value)}
+                      placeholder="उदा. जनसुनवाई समय में संशोधन / अवकाश सूचना..."
+                      className="w-full p-2.5 rounded-xl border border-amber-300 bg-white text-xs sm:text-sm font-devanagari focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
+                      विस्तृत संदेश:
+                    </label>
+                    <textarea
+                      rows={3}
+                      required
+                      value={editNoticeMsg}
+                      onChange={(e) => setEditNoticeMsg(e.target.value)}
+                      placeholder="नागरिकों के लिए विस्तृत निर्देश या आदेश..."
+                      className="w-full p-2.5 rounded-xl border border-amber-300 bg-white text-xs sm:text-sm font-devanagari focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 font-devanagari">
+                      <span>प्राथमिकता:</span>
+                      <select
+                        value={editNoticePriority}
+                        onChange={(e) => setEditNoticePriority(e.target.value as any)}
+                        className="p-1.5 rounded-lg border border-amber-300 bg-white text-xs font-devanagari"
+                      >
+                        <option value="normal">सामान्य (Normal)</option>
+                        <option value="high">अति महत्वपूर्ण (High)</option>
+                      </select>
+                    </label>
+
+                    <div className="ml-auto flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleCancelEditNotice}
+                        className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs font-devanagari transition-colors cursor-pointer"
+                      >
+                        रद्द करें
+                      </button>
+                      <button
+                        type="submit"
+                        className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm font-devanagari transition-all cursor-pointer"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>बदलाव सुरक्षित करें (Save Changes)</span>
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* ── CREATE NEW NOTICE FORM ── */}
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
               <h3 className="text-sm font-bold text-slate-900 font-devanagari mb-3 flex items-center gap-1.5">
                 <Plus className="w-4 h-4 text-police-700" />
@@ -1067,7 +1427,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                     value={newNoticeTitle}
                     onChange={(e) => setNewNoticeTitle(e.target.value)}
                     placeholder="उदा. जनसुनवाई समय में संशोधन / अवकाश सूचना..."
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-devanagari"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-devanagari focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
 
@@ -1081,11 +1441,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                     value={newNoticeMsg}
                     onChange={(e) => setNewNoticeMsg(e.target.value)}
                     placeholder="नागरिकों के लिए विस्तृत निर्देश या आदेश..."
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-devanagari"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-devanagari focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-wrap">
                   <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 font-devanagari">
                     <span>प्राथमिकता:</span>
                     <select
@@ -1100,7 +1460,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
 
                   <button
                     type="submit"
-                    className="ml-auto bg-[#007074] hover:bg-[#005B5E] text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm font-devanagari transition-all"
+                    className="ml-auto bg-[#007074] hover:bg-[#005B5E] text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm font-devanagari transition-all cursor-pointer"
                   >
                     <Save className="w-3.5 h-3.5 text-amber-300" />
                     <span>सूचना प्रकाशित करें</span>
@@ -1109,6 +1469,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
               </form>
             </div>
 
+            {/* ── ACTIVE NOTICES LIST (With Edit & Delete) ── */}
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
               <h3 className="text-sm font-bold text-slate-900 font-devanagari mb-3">
                 सक्रिय सार्वजनिक सूचनाएं ({notices.length}):
@@ -1121,9 +1482,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
               ) : (
                 <div className="space-y-3">
                   {notices.map((n) => (
-                    <div key={n.id} className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
+                    <div key={n.id} className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-start justify-between gap-3 hover:border-slate-300 transition-colors">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-bold text-sm text-slate-900 font-devanagari">{n.title}</h4>
                           {n.priority === 'high' && (
                             <span className="text-[10px] bg-rose-500 text-white font-bold px-2 py-0.5 rounded-full font-devanagari">
@@ -1131,15 +1492,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-600 font-devanagari mt-1">{n.message}</p>
+                        <p className="text-xs text-slate-600 font-devanagari mt-1 leading-relaxed">{n.message}</p>
                       </div>
-                      <button
-                        onClick={() => triggerDeleteNoticeModal(n.id, n.title)}
-                        className="text-rose-600 hover:bg-rose-100 p-2 rounded-lg transition-colors"
-                        title="हटाएं"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {/* Edit Notice Button */}
+                        <button
+                          onClick={() => handleStartEditNotice(n)}
+                          className="flex items-center gap-1 text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1.5 rounded-lg text-xs font-semibold font-devanagari transition-colors cursor-pointer"
+                          title="संपादित करें"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>एडिट</span>
+                        </button>
+
+                        {/* Delete Notice Button */}
+                        <button
+                          onClick={() => triggerDeleteNoticeModal(n.id, n.title)}
+                          className="flex items-center gap-1 text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1.5 rounded-lg text-xs font-semibold font-devanagari transition-colors cursor-pointer"
+                          title="हटाएं"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>हटाएं</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1149,186 +1525,361 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
         )}
 
         {/* ═══════════════════════════════════════════════════════
-            TAB 3: OFFICER PROFILES
+            TAB 3: OFFICER PROFILES (Add, Edit, Delete & Save)
         ═══════════════════════════════════════════════════════ */}
         {activeTab === 'officers' && (
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 font-devanagari mb-1">
-              अधिकारियों का विवरण (Officer Profiles):
-            </h3>
-            <p className="text-xs text-slate-500 font-devanagari mb-3">
-              ये प्रोफाइल सार्वजनिक पोर्टल के अधिकारी अनुभाग में प्रदर्शित होते हैं
-            </p>
+          <div className="space-y-5">
 
-            <div className="space-y-4">
-              {officers.map((officer, index) => (
-                <div key={officer.id || index} className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col sm:flex-row gap-4 items-start">
-                  <div className="w-16 h-16 rounded-xl bg-slate-200 flex items-center justify-center font-bold text-slate-700 text-lg border-2 border-slate-300">
-                    {officer.name.charAt(0)}
+            {/* ── Non-Technical Staff Guide Box ── */}
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50/70 rounded-2xl p-4 sm:p-5 border border-emerald-200 text-slate-800 shadow-xs">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-emerald-700 text-white flex items-center justify-center flex-shrink-0 mt-0.5 font-bold text-sm shadow-xs">
+                  👮
+                </div>
+                <div className="flex-1 text-xs font-devanagari space-y-1.5">
+                  <div className="font-extrabold text-sm text-emerald-950">
+                    अधिकारी प्रोफाइल कैसे जोड़ें व अपडेट करें? (प्रोफाइल गाइड)
                   </div>
-                  <div className="flex-1 space-y-2 w-full text-xs">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div>
-                        <span className="font-semibold text-slate-600 font-devanagari">नाम:</span>
-                        <input
-                          type="text"
-                          value={officer.name}
-                          onChange={(e) => {
-                            const updated = [...officers];
-                            updated[index].name = e.target.value;
-                            setOfficers(updated);
-                          }}
-                          className="w-full p-2 mt-0.5 rounded-lg border border-slate-300 bg-white font-bold font-devanagari"
-                        />
-                      </div>
-                      <div>
-                        <span className="font-semibold text-slate-600 font-devanagari">पदनाम:</span>
-                        <input
-                          type="text"
-                          value={officer.designation}
-                          onChange={(e) => {
-                            const updated = [...officers];
-                            updated[index].designation = e.target.value;
-                            setOfficers(updated);
-                          }}
-                          className="w-full p-2 mt-0.5 rounded-lg border border-slate-300 bg-white font-devanagari"
-                        />
-                      </div>
+                  <p className="text-slate-700 leading-relaxed font-medium">
+                    <strong>उद्देश्य:</strong> जिले के वरिष्ठ पुलिस अधिकारियों (एसपी सर, एडिशनल एसपी सर, डिप्टी एसपी सर) के नाम, पदनाम और कार्यालय दूरभाष को अद्यतन बनाए रखने के लिए। यह जानकारी सार्वजनिक पोर्टल के 'अधिकारी विवरण' सेक्शन में प्रदर्शित होती है।
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11.5px]">
+                    <div className="bg-white/90 p-2.5 rounded-xl border border-emerald-100 shadow-2xs">
+                      <strong className="text-emerald-900 block mb-0.5">1. नया जोड़ें (Add):</strong>
+                      '+ नया अधिकारी जोड़ें' बटन दबाकर नए अधिकारी की प्रोफाइल शामिल करें।
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div>
-                        <span className="font-semibold text-slate-600 font-devanagari">कार्यालय दूरभाष:</span>
-                        <input
-                          type="text"
-                          value={officer.phone}
-                          onChange={(e) => {
-                            const updated = [...officers];
-                            updated[index].phone = e.target.value;
-                            setOfficers(updated);
-                          }}
-                          className="w-full p-2 mt-0.5 rounded-lg border border-slate-300 bg-white font-mono"
-                        />
-                      </div>
-                      <div>
-                        <span className="font-semibold text-slate-600 font-devanagari">विवरण:</span>
-                        <input
-                          type="text"
-                          value={officer.description || ''}
-                          onChange={(e) => {
-                            const updated = [...officers];
-                            updated[index].description = e.target.value;
-                            setOfficers(updated);
-                          }}
-                          className="w-full p-2 mt-0.5 rounded-lg border border-slate-300 bg-white font-devanagari text-[11px]"
-                        />
-                      </div>
+                    <div className="bg-white/90 p-2.5 rounded-xl border border-emerald-100 shadow-2xs">
+                      <strong className="text-emerald-900 block mb-0.5">2. संपादित करें (Edit):</strong>
+                      ट्रांसफर होने पर नाम व फोन नंबर बदलने के लिए 'एडिट' बटन का उपयोग करें।
+                    </div>
+                    <div className="bg-white/90 p-2.5 rounded-xl border border-emerald-100 shadow-2xs">
+                      <strong className="text-emerald-900 block mb-0.5">3. डेटाबेस सेव (Save):</strong>
+                      बदलाव करने के बाद नीचे 'अधिकारी प्रोफाइल सहेजें' बटन दबाएं।
                     </div>
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
-            
-            <button
-              onClick={triggerSaveOfficersModal}
-              className="mt-3 bg-[#007074] hover:bg-[#005B5E] text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-sm font-devanagari transition-all"
-            >
-              <Save className="w-3.5 h-3.5 text-amber-300" />
-              <span>अधिकारी प्रोफाइल सहेजें</span>
-            </button>
-          </div>
-        )}
 
-        {/* ═══════════════════════════════════════════════════════
-            TAB 4: QR CODE POSTER
-        ═══════════════════════════════════════════════════════ */}
-        {activeTab === 'qr' && (
-          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm text-center">
-            <span className="text-xs font-bold text-amber-600 uppercase tracking-wider font-devanagari">
-              कार्यालय काउंटर / स्वागत पटल हेतु
-            </span>
-            <h3 className="text-lg font-bold text-slate-900 font-devanagari mt-1">
-              जनसुनवाई QR कोड स्टैंडी / पोस्टर
-            </h3>
-            <p className="text-xs text-slate-600 mt-1 max-w-md mx-auto font-devanagari">
-              इस पोस्टर को प्रिंट करके पुलिस अधीक्षक कार्यालय के स्वागत कक्ष, मुख्य द्वार एवं नोटिस बोर्ड पर लगाया जा सकता है।
-            </p>
-
-            {/* Poster Print Card */}
-            <div className="my-6 max-w-sm mx-auto p-6 bg-gradient-to-b from-white to-blue-50/50 border-4 border-[#0B1728] rounded-2xl shadow-xl text-slate-900">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <img src="/rajasthan-police-logo.webp" alt="Police Logo" className="w-12 h-12" />
-                <div className="text-left">
-                  <div className="text-[10px] font-bold uppercase text-amber-700">राजस्थान पुलिस</div>
-                  <div className="text-sm font-extrabold font-devanagari leading-tight">पुलिस अधीक्षक कार्यालय</div>
-                  <div className="text-[11px] font-semibold text-slate-600">जिला चित्तौड़गढ़ (राज.)</div>
+            {/* ── ADD NEW OFFICER FORM (Modal / Inline card) ── */}
+            {isAddingOfficer && (
+              <div className="bg-emerald-50/90 rounded-2xl p-5 border-2 border-emerald-400 shadow-md animate-in fade-in duration-200">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold text-emerald-950 font-devanagari flex items-center gap-1.5">
+                    <UserPlus className="w-4 h-4 text-emerald-700" />
+                    <span>नया अधिकारी प्रोफाइल जोड़ें (Add New Officer):</span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleCancelAddOfficer}
+                    className="text-slate-500 hover:text-slate-800 p-1 rounded-lg transition-colors cursor-pointer"
+                    title="रद्द करें"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-              </div>
 
-              <div className="bg-[#0B1728] text-amber-300 text-xs font-bold py-1 px-3 rounded-full my-3 inline-block font-devanagari">
-                दैनिक जनसुनवाई उपलब्धता
-              </div>
+                <form onSubmit={handleSaveNewOfficerSubmit} className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
+                        अधिकारी का नाम: <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newOfficerName}
+                        onChange={(e) => setNewOfficerName(e.target.value)}
+                        placeholder="उदा. श्री राहुल यादव (IPS)"
+                        className="w-full p-2.5 rounded-xl border border-emerald-300 bg-white text-xs sm:text-sm font-devanagari font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
 
-              <div className="bg-white p-4 rounded-xl border-2 border-slate-300 shadow-inner inline-block my-2">
-                <QRCodeSVG
-                  value={publicUrl}
-                  size={190}
-                  level="H"
-                  includeMargin={true}
-                  imageSettings={{
-                    src: '/rajasthan-police-logo.webp',
-                    x: undefined,
-                    y: undefined,
-                    height: 42,
-                    width: 42,
-                    excavate: true,
-                  }}
-                />
-              </div>
-
-              <p className="text-xs font-bold text-[#0B1728] font-devanagari mt-2">
-                अपने मोबाइल से QR कोड स्कैन करें
-              </p>
-              <p className="text-[10px] text-slate-500 font-devanagari">
-                आज एसपी सर उपलब्ध हैं या नहीं व समय तुरंत देखें
-              </p>
-            </div>
-
-            <button
-              onClick={() => window.print()}
-              className="bg-[#0B1728] hover:bg-[#112240] text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md inline-flex items-center gap-2 font-devanagari"
-            >
-              <Download className="w-4 h-4 text-amber-400" />
-              <span>पोस्टर प्रिंट करें (Print / PDF)</span>
-            </button>
-          </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════════════
-            TAB 5: AUDIT LOGS
-        ═══════════════════════════════════════════════════════ */}
-        {activeTab === 'logs' && (
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-900 font-devanagari mb-1">
-              अद्यतन इतिहास एवं ऑडिट लॉग (Audit Trail):
-            </h3>
-            <p className="text-xs text-slate-500 font-devanagari mb-3">
-              दैनिक स्थिति में किए गए सभी बदलावों का सुरक्षित रिकॉर्ड
-            </p>
-
-            <div className="divide-y divide-slate-100 text-xs">
-              {logs.map((log) => (
-                <div key={log.id} className="py-2.5 flex items-start justify-between gap-2">
-                  <div>
-                    <div className="font-bold text-slate-800">{log.action}</div>
-                    <div className="text-slate-600 text-[11px] font-devanagari">{log.details}</div>
-                    <div className="text-[10px] text-slate-400">कर्ता: {log.admin_user}</div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
+                        पदनाम (Designation): <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newOfficerDesignation}
+                        onChange={(e) => setNewOfficerDesignation(e.target.value)}
+                        placeholder="उदा. अतिरिक्त पुलिस अधीक्षक (Addl. SP)"
+                        className="w-full p-2.5 rounded-xl border border-emerald-300 bg-white text-xs sm:text-sm font-devanagari focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
                   </div>
-                  <span className="text-[10px] text-slate-400 whitespace-nowrap">
-                    {new Date(log.created_at).toLocaleDateString('hi-IN', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
+                        कार्यालय दूरभाष / फोन:
+                      </label>
+                      <input
+                        type="text"
+                        value={newOfficerPhone}
+                        onChange={(e) => setNewOfficerPhone(e.target.value)}
+                        placeholder="उदा. 01472-240201"
+                        className="w-full p-2.5 rounded-xl border border-emerald-300 bg-white text-xs sm:text-sm font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
+                        कक्ष संख्या / संक्षिप्त विवरण:
+                      </label>
+                      <input
+                        type="text"
+                        value={newOfficerDescription}
+                        onChange={(e) => setNewOfficerDescription(e.target.value)}
+                        placeholder="उदा. कक्ष संख्या 4, प्रथम तल"
+                        className="w-full p-2.5 rounded-xl border border-emerald-300 bg-white text-xs sm:text-sm font-devanagari focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
+                        क्रम संख्या (Order):
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={newOfficerOrder}
+                        onChange={(e) => setNewOfficerOrder(Number(e.target.value))}
+                        className="w-full p-2.5 rounded-xl border border-emerald-300 bg-white text-xs sm:text-sm font-bold text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleCancelAddOfficer}
+                      className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs font-devanagari transition-colors cursor-pointer"
+                    >
+                      रद्द करें
+                    </button>
+                    <button
+                      type="submit"
+                      className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm font-devanagari transition-all cursor-pointer"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>अधिकारी जोड़ें (Add Officer)</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* ── EDIT OFFICER FORM (Modal / Inline card) ── */}
+            {editingOfficer && (
+              <div className="bg-amber-50/90 rounded-2xl p-5 border-2 border-amber-400 shadow-md animate-in fade-in duration-200">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold text-amber-950 font-devanagari flex items-center gap-1.5">
+                    <Edit2 className="w-4 h-4 text-amber-600" />
+                    <span>अधिकारी प्रोफाइल संशोधित करें: {editingOfficer.name}</span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleCancelEditOfficer}
+                    className="text-slate-500 hover:text-slate-800 p-1 rounded-lg transition-colors cursor-pointer"
+                    title="रद्द करें"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-              ))}
+
+                <form onSubmit={handleSaveEditOfficerSubmit} className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
+                        अधिकारी का नाम: <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editOfficerName}
+                        onChange={(e) => setEditOfficerName(e.target.value)}
+                        placeholder="उदा. श्री राहुल यादव (IPS)"
+                        className="w-full p-2.5 rounded-xl border border-amber-300 bg-white text-xs sm:text-sm font-devanagari font-bold focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
+                        पदनाम (Designation): <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editOfficerDesignation}
+                        onChange={(e) => setEditOfficerDesignation(e.target.value)}
+                        placeholder="उदा. अतिरिक्त पुलिस अधीक्षक"
+                        className="w-full p-2.5 rounded-xl border border-amber-300 bg-white text-xs sm:text-sm font-devanagari focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
+                        कार्यालय दूरभाष / फोन:
+                      </label>
+                      <input
+                        type="text"
+                        value={editOfficerPhone}
+                        onChange={(e) => setEditOfficerPhone(e.target.value)}
+                        placeholder="उदा. 01472-240201"
+                        className="w-full p-2.5 rounded-xl border border-amber-300 bg-white text-xs sm:text-sm font-mono focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
+                        कक्ष संख्या / संक्षिप्त विवरण:
+                      </label>
+                      <input
+                        type="text"
+                        value={editOfficerDescription}
+                        onChange={(e) => setEditOfficerDescription(e.target.value)}
+                        placeholder="उदा. कक्ष संख्या 4, प्रथम तल"
+                        className="w-full p-2.5 rounded-xl border border-amber-300 bg-white text-xs sm:text-sm font-devanagari focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
+                        क्रम संख्या (Order):
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={editOfficerOrder}
+                        onChange={(e) => setEditOfficerOrder(Number(e.target.value))}
+                        className="w-full p-2.5 rounded-xl border border-amber-300 bg-white text-xs sm:text-sm font-bold text-center focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleCancelEditOfficer}
+                      className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs font-devanagari transition-colors cursor-pointer"
+                    >
+                      रद्द करें
+                    </button>
+                    <button
+                      type="submit"
+                      className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm font-devanagari transition-all cursor-pointer"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>बदलाव सुरक्षित करें (Save Changes)</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* ── OFFICERS LIST CARD WITH ADD BUTTON ── */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 font-devanagari flex items-center gap-2">
+                    <Users className="w-4 h-4 text-police-700" />
+                    <span>अधिकारियों का विवरण (Officer Profiles) ({officers.length}):</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 font-devanagari mt-0.5">
+                    ये प्रोफाइल सार्वजनिक पोर्टल के अधिकारी अनुभाग व वैकल्पिक सुनवाई सूची में प्रदर्शित होते हैं
+                  </p>
+                </div>
+
+                {/* + ADD OFFICER BUTTON */}
+                <button
+                  type="button"
+                  onClick={handleStartAddOfficer}
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm font-devanagari transition-all hover:scale-102 cursor-pointer self-start sm:self-auto"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>+ नया अधिकारी जोड़ें</span>
+                </button>
+              </div>
+
+              {/* Officer Cards */}
+              <div className="space-y-3">
+                {officers.map((officer, index) => (
+                  <div key={officer.id || index} className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between hover:border-slate-300 transition-colors">
+                    <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                      <div className="w-12 h-12 rounded-xl bg-slate-200 flex items-center justify-center font-bold text-slate-700 text-lg border border-slate-300 flex-shrink-0">
+                        {officer.name.charAt(0)}
+                      </div>
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-sm text-slate-900 font-devanagari truncate">
+                            {officer.name}
+                          </h4>
+                          <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full font-devanagari">
+                            क्रम: {officer.display_order || index + 1}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 font-devanagari font-medium">
+                          {officer.designation}
+                        </p>
+                        <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                          {officer.phone && (
+                            <span className="flex items-center gap-1 font-mono text-[11px] text-slate-600">
+                              <Phone className="w-3 h-3 text-amber-600" />
+                              {officer.phone}
+                            </span>
+                          )}
+                          {officer.description && (
+                            <span className="font-devanagari text-[11px] text-slate-500">
+                              • {officer.description}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action buttons: Edit & Delete */}
+                    <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleStartEditOfficer(officer)}
+                        className="flex items-center gap-1 text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-semibold font-devanagari transition-colors cursor-pointer"
+                        title="संपादित करें"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>एडिट</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => triggerDeleteOfficerModal(officer)}
+                        className="flex items-center gap-1 text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-1.5 rounded-lg text-xs font-semibold font-devanagari transition-colors cursor-pointer"
+                        title="हटाएं"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>हटाएं</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="pt-2 flex items-center justify-between flex-wrap gap-2">
+                <span className="text-xs text-slate-500 font-devanagari">
+                  * सभी परिवर्तन तुरंत डेटाबेस में सुरक्षित करने के लिए सेव बटन दबाएं।
+                </span>
+                <button
+                  type="button"
+                  onClick={triggerSaveOfficersModal}
+                  className="bg-[#007074] hover:bg-[#005B5E] text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-sm font-devanagari transition-all cursor-pointer"
+                >
+                  <Save className="w-3.5 h-3.5 text-amber-300" />
+                  <span>अधिकारी प्रोफाइल सहेजें (Save All)</span>
+                </button>
+              </div>
             </div>
           </div>
         )}

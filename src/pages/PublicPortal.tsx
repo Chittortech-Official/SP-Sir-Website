@@ -71,7 +71,7 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin, onOpenI
       };
     }
 
-    // Supabase Realtime subscription
+    // Supabase Realtime subscription for ALL 4 tables
     let channel: any = null;
     if (supabase) {
       channel = supabase
@@ -82,13 +82,19 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin, onOpenI
         .on('postgres_changes', { event: '*', schema: 'public', table: 'availability_slots' }, () => {
           loadData(false);
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'public_notices' }, () => {
+          loadData(false);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'officer_profiles' }, () => {
+          loadData(false);
+        })
         .subscribe();
     }
 
-    // Automatic periodic refresh every 30 seconds
+    // Automatic periodic refresh every 15 seconds for high responsiveness
     const intervalId = setInterval(() => {
       loadData(false);
-    }, 30000);
+    }, 15000);
 
     // Automatic refresh when citizen returns to this tab
     const handleTabActive = () => {

@@ -145,15 +145,23 @@ const setStored = <T>(key: string, value: T): void => {
   }
 };
 
-// Cross-tab broadcast notifier
+// Cross-tab and live sync notifier
 export const notifyAvailabilityUpdated = () => {
   try {
     if (typeof window !== 'undefined') {
+      // 1. Dispatch custom event for current window
       window.dispatchEvent(new CustomEvent('sp_availability_changed', { detail: { time: Date.now() } }));
+
+      // 2. Set dedicated localStorage sync key (reliably triggers 'storage' event across ALL open tabs/windows!)
+      localStorage.setItem('sp_portal_last_sync_timestamp', Date.now().toString());
+
+      // 3. BroadcastChannel (do NOT close immediately, allow cross-tab message delivery)
       if ('BroadcastChannel' in window) {
         const bc = new BroadcastChannel('sp_portal_sync');
         bc.postMessage({ type: 'SYNC_NOW', time: Date.now() });
-        bc.close();
+        setTimeout(() => {
+          try { bc.close(); } catch {}
+        }, 1500);
       }
     }
   } catch (e) {
@@ -337,15 +345,6 @@ export const DataService = {
           updatedRecord.id = upsertData.id;
           setStored(STORAGE_KEYS.AVAILABILITY, updatedRecord);
         }
-
-        // Add audit log
-        await supabase.from('admin_audit_logs').insert({
-          admin_user: adminName,
-          action: 'UPDATE_AVAILABILITY',
-          record_type: 'availability',
-          details: `स्थिति: ${updatedRecord.status}, संदेश: ${updatedRecord.public_message}`
-        });
-
       } catch (err: any) {
         console.error('Supabase write error:', err);
         notifyAvailabilityUpdated();
@@ -378,8 +377,16 @@ export const DataService = {
 
     if (supabase) {
       try {
-        if (notice.id && !notice.id.startsWith('not-')) {
-          await supabase.from('public_notices').update(notice).eq('id', notice.id);
+        if (notice.id && isValidUUID(notice.id)) {
+          await supabase.from('public_notices').update({
+            title: notice.title,
+            message: notice.message,
+            published: notice.published,
+            priority: notice.priority,
+            publish_at: notice.publish_at || new Date().toISOString(),
+            expires_at: notice.expires_at || null,
+            updated_at: new Date().toISOString()
+          }).eq('id', notice.id);
         } else {
           await supabase.from('public_notices').insert({
             title: notice.title,
@@ -387,7 +394,7 @@ export const DataService = {
             published: notice.published,
             priority: notice.priority,
             publish_at: notice.publish_at || new Date().toISOString(),
-            expires_at: notice.expires_at
+            expires_at: notice.expires_at || null
           });
         }
       } catch (err) {
@@ -395,6 +402,8 @@ export const DataService = {
       }
     }
 
+    // Trigger instant real-time sync across public portal
+    notifyAvailabilityUpdated();
     return true;
   },
 
@@ -403,38 +412,134 @@ export const DataService = {
     const updated = currentNotices.filter(n => n.id !== id);
     setStored(STORAGE_KEYS.NOTICES, updated);
 
-    if (supabase && !id.startsWith('not-')) {
+    if (supabase && isValidUUID(id)) {
       try {
         await supabase.from('public_notices').delete().eq('id', id);
       } catch (e) {
         console.error(e);
       }
     }
+
+    // Trigger instant real-time sync across public portal
+    notifyAvailabilityUpdated();
     return true;
   },
 
-  async getAuditLogs(): Promise<AdminAuditLog[]> {
+  async addOfficer(officer: Omit<OfficerProfile, 'id'>): Promise<{ success: boolean; data?: OfficerProfile; error?: string }> {
+    let newOfficer: OfficerProfile;
     if (supabase) {
       try {
-        const { data } = await supabase
-          .from('admin_audit_logs')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(20);
-        if (data && data.length > 0) return data;
-      } catch {
-        // ignore
+        const { data, error } = await supabase.from('officer_profiles').insert({
+          name: officer.name,
+          designation: officer.designation,
+          phone: officer.phone,
+          email: officer.email || null,
+          photo_url: officer.photo_url || null,
+          description: officer.description || null,
+          is_active: officer.is_active ?? true,
+          display_order: officer.display_order || 1
+        }).select().single();
+
+        if (error) throw error;
+        newOfficer = data;
+      } catch (err: any) {
+        console.warn('Supabase addOfficer failed, saving locally', err);
+        newOfficer = {
+          id: 'off-' + Date.now(),
+          ...officer
+        };
+      }
+    } else {
+      newOfficer = {
+        id: 'off-' + Date.now(),
+        ...officer
+      };
+    }
+
+    const currentOfficers = await this.getOfficers();
+    const updated = [...currentOfficers, newOfficer];
+    setStored(STORAGE_KEYS.OFFICERS, updated);
+    notifyAvailabilityUpdated();
+    return { success: true, data: newOfficer };
+  },
+
+  async updateOfficer(officer: OfficerProfile): Promise<{ success: boolean; error?: string }> {
+    const currentOfficers = await this.getOfficers();
+    const updated = currentOfficers.map(o => o.id === officer.id ? { ...o, ...officer } : o);
+    setStored(STORAGE_KEYS.OFFICERS, updated);
+
+    if (supabase && isValidUUID(officer.id)) {
+      try {
+        const { error } = await supabase.from('officer_profiles').update({
+          name: officer.name,
+          designation: officer.designation,
+          phone: officer.phone,
+          email: officer.email || null,
+          photo_url: officer.photo_url || null,
+          description: officer.description || null,
+          is_active: officer.is_active,
+          display_order: officer.display_order,
+          updated_at: new Date().toISOString()
+        }).eq('id', officer.id);
+
+        if (error) throw error;
+      } catch (err: any) {
+        console.error('Supabase updateOfficer error', err);
       }
     }
-    return getStored<AdminAuditLog[]>(STORAGE_KEYS.AUDIT, [
-      {
-        id: 'log-1',
-        admin_user: 'PA, SP Office',
-        action: 'UPDATE_AVAILABILITY',
-        record_type: 'availability',
-        details: 'स्थिति: उपलब्ध (10:30 AM - 1:00 PM, 3:30 PM - 5:30 PM)',
-        created_at: new Date().toISOString()
+
+    notifyAvailabilityUpdated();
+    return { success: true };
+  },
+
+  async deleteOfficer(id: string): Promise<boolean> {
+    const currentOfficers = await this.getOfficers();
+    const updated = currentOfficers.filter(o => o.id !== id);
+    setStored(STORAGE_KEYS.OFFICERS, updated);
+
+    if (supabase && isValidUUID(id)) {
+      try {
+        await supabase.from('officer_profiles').delete().eq('id', id);
+      } catch (e) {
+        console.error('Supabase deleteOfficer error', e);
       }
-    ]);
+    }
+
+    notifyAvailabilityUpdated();
+    return true;
+  },
+
+  async saveOfficers(officersList: OfficerProfile[]): Promise<{ success: boolean; error?: string }> {
+    setStored(STORAGE_KEYS.OFFICERS, officersList);
+
+    if (supabase) {
+      try {
+        for (const officer of officersList) {
+          if (officer.id && isValidUUID(officer.id)) {
+            await supabase.from('officer_profiles').upsert({
+              id: officer.id,
+              name: officer.name,
+              designation: officer.designation,
+              phone: officer.phone,
+              email: officer.email || null,
+              photo_url: officer.photo_url || null,
+              description: officer.description || null,
+              is_active: officer.is_active ?? true,
+              display_order: officer.display_order || 1,
+              updated_at: new Date().toISOString()
+            });
+          }
+        }
+      } catch (err: any) {
+        console.error('Supabase saveOfficers error', err);
+      }
+    }
+
+    notifyAvailabilityUpdated();
+    return { success: true };
+  },
+
+  async getAuditLogs(): Promise<AdminAuditLog[]> {
+    return [];
   }
 };
