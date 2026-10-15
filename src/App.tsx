@@ -43,12 +43,9 @@ export function App() {
 
   const navigateTo = (route: AppRoute) => {
     setCurrentRoute(route);
-    if (route === 'admin') {
-      window.location.hash = 'admin';
-    } else if (route === 'initiative') {
-      window.location.hash = 'initiative';
-    } else {
-      window.location.hash = '';
+    const targetPath = route === 'admin' ? '/admin' : route === 'initiative' ? '/initiative' : '/';
+    if (window.location.pathname !== targetPath || window.location.hash) {
+      window.history.pushState(null, '', targetPath);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
