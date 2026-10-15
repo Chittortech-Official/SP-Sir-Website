@@ -10,12 +10,17 @@ import {
   Users, 
   QrCode, 
   History, 
-  ShieldCheck,
-  Check,
-  Download
+  Check, 
+  Download,
+  AlertCircle,
+  Eye,
+  CheckCircle2,
+  XCircle,
+  UserCheck
 } from 'lucide-react';
-import { DataService, isSupabaseConfigured } from '../lib/supabase';
+import { DataService, isSupabaseConfigured, getTodayISODate } from '../lib/supabase';
 import type { 
+  Availability,
   AvailabilitySlot, 
   AvailabilityStatus, 
   TimingType, 
@@ -24,23 +29,77 @@ import type {
   AdminAuditLog 
 } from '../types/database';
 import { QRCodeSVG } from 'qrcode.react';
+import { getTodayHindiDate } from '../utils/dateHindi';
+import { ActionFeedbackModal } from './ActionFeedbackModal';
+export type ModalType = 'confirm' | 'success' | 'danger' | 'info';
 
 interface AdminDashboardProps {
   onLogout: () => void;
   onViewPublic: () => void;
 }
 
+interface ModalState {
+  isOpen: boolean;
+  type: ModalType;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  confirmColor?: 'teal' | 'emerald' | 'rose' | 'blue' | 'navy';
+  isLoading?: boolean;
+  onConfirm?: () => void;
+  onCancel?: () => void;
+  onClose?: () => void;
+}
+
+const STATUS_LABELS: Record<AvailabilityStatus, { title: string; subtitle: string; color: string; bg: string; border: string }> = {
+  available: {
+    title: 'उपलब्ध हैं',
+    subtitle: 'कार्यालय में जनसुनवाई करेंगे',
+    color: '#065F46',
+    bg: '#ECFDF5',
+    border: '#10B981',
+  },
+  unavailable: {
+    title: 'उपलब्ध नहीं हैं',
+    subtitle: 'शासकीय दौरा / आवश्यक बैठक',
+    color: '#991B1B',
+    bg: '#FEF2F2',
+    border: '#EF4444',
+  },
+  confirmation_pending: {
+    title: 'पुष्टि बाकी है',
+    subtitle: 'समय अभी तय होना बाकी है',
+    color: '#92400E',
+    bg: '#FFFBEB',
+    border: '#F59E0B',
+  },
+  time_changed: {
+    title: 'समय परिवर्तित',
+    subtitle: 'नए समय पर जनसुनवाई होगी',
+    color: '#1E40AF',
+    bg: '#EFF6FF',
+    border: '#3B82F6',
+  },
+};
+
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onViewPublic }) => {
   const [activeTab, setActiveTab] = useState<'availability' | 'notices' | 'officers' | 'qr' | 'logs'>('availability');
   
-  // State for Availability & Slots
+  // Current Live State from Database
+  const [liveAvailability, setLiveAvailability] = useState<Availability | null>(null);
+
+  // Form State for Availability & Slots
   const [status, setStatus] = useState<AvailabilityStatus>('available');
   const [timingType, setTimingType] = useState<TimingType>('confirmed');
   const [publicMessage, setPublicMessage] = useState('');
   const [alternativeOfficerId, setAlternativeOfficerId] = useState<string>('');
-  const [alternativeTiming, setAlternativeTiming] = useState('दोपहर 12:00 से 01:00 बजे तक');
+  const [alternativeTiming, setAlternativeTiming] = useState('दोपहर 12:00 बजे से 01:00 बजे तक');
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
   
+  // Unsaved changes tracker
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
   // Officers, Notices, Logs
   const [officers, setOfficers] = useState<OfficerProfile[]>([]);
   const [notices, setNotices] = useState<PublicNotice[]>([]);
@@ -53,56 +112,184 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
 
   // UI feedback states
   const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // ── Two-Step Confirmation / Success Modal State ──
+  const [modalState, setModalState] = useState<ModalState>({
+    isOpen: false,
+    type: 'confirm',
+    title: '',
+    message: '',
+  });
+
+  const closeModal = () => {
+    setModalState(prev => ({ ...prev, isOpen: false }));
+  };
 
   useEffect(() => {
     loadAllData();
   }, []);
 
   const loadAllData = async () => {
-    const { availability: avail, slots: availSlots } = await DataService.getTodayAvailability();
-    const allOfficers = await DataService.getOfficers();
-    const allNotices = await DataService.getPublicNotices();
-    const allLogs = await DataService.getAuditLogs();
-
-    setStatus(avail.status);
-    setTimingType(avail.timing_type);
-    setPublicMessage(avail.public_message || '');
-    setAlternativeOfficerId(avail.alternative_officer_id || '');
-    setAlternativeTiming(avail.alternative_timing || '');
-    setSlots(availSlots);
-    setOfficers(allOfficers);
-    setNotices(allNotices);
-    setLogs(allLogs);
-  };
-
-  const handleSaveAvailability = async () => {
-    setSaving(true);
     try {
-      await DataService.saveAvailability(
-        {
-          status,
-          timing_type: timingType,
-          public_message: publicMessage,
-          alternative_officer_id: alternativeOfficerId || null,
-          alternative_timing: alternativeTiming,
-          published: true
-        },
-        slots,
-        localStorage.getItem('sp_admin_email') || 'PA, SP Office'
-      );
+      const { availability: avail, slots: availSlots } = await DataService.getTodayAvailability();
+      const allOfficers = await DataService.getOfficers();
+      const allNotices = await DataService.getPublicNotices();
+      const allLogs = await DataService.getAuditLogs();
 
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-      await loadAllData();
+      setLiveAvailability(avail);
+      setStatus(avail.status);
+      setTimingType(avail.timing_type);
+      setPublicMessage(avail.public_message || '');
+      setAlternativeOfficerId(avail.alternative_officer_id || '');
+      setAlternativeTiming(avail.alternative_timing || 'दोपहर 12:00 बजे से 01:00 बजे तक');
+      setSlots(availSlots);
+      setOfficers(allOfficers);
+      setNotices(allNotices);
+      setLogs(allLogs);
+      setHasUnsavedChanges(false);
     } catch (e) {
-      alert('बदलाव सहेजने में त्रुटि हुई');
-    } finally {
-      setSaving(false);
+      console.error('Error loading admin data', e);
     }
   };
 
+  // Smart Status Change Handler with automatic preset messages
+  const handleSelectStatus = (newStatus: AvailabilityStatus) => {
+    setStatus(newStatus);
+    setHasUnsavedChanges(true);
+
+    if (newStatus === 'available') {
+      setPublicMessage('आज पुलिस अधीक्षक महोदय कार्यालय में उपस्थित हैं। परिवादी जनसुनवाई कक्ष में उपस्थित होकर अपनी समस्या प्रस्तुत कर सकते हैं।');
+      setTimingType('confirmed');
+      if (slots.length === 0) {
+        applySlotsPreset('standard');
+      }
+    } else if (newStatus === 'unavailable') {
+      setPublicMessage('आज पुलिस अधीक्षक महोदय शासकीय कार्य / दौरे पर होने के कारण कार्यालय में जनसुनवाई हेतु उपलब्ध नहीं रहेंगे।');
+      // Default to Additional SP if available
+      const addlSp = officers.find(o => o.designation.includes('अतिरिक्त') || o.designation.includes('Addl'));
+      if (addlSp && !alternativeOfficerId) {
+        setAlternativeOfficerId(addlSp.id);
+      }
+    } else if (newStatus === 'confirmation_pending') {
+      setPublicMessage('आज की जनसुनवाई का समय पुष्ट होना प्रतीक्षित है। शीघ्र ही अद्यतन जानकारी पोर्टल पर दी जाएगी।');
+      setTimingType('tentative');
+    } else if (newStatus === 'time_changed') {
+      setPublicMessage('आज जनसुनवाई के समय में संशोधन किया गया है। कृपया नीचे दिए गए नए सत्र समय का अवलोकन करें।');
+    }
+  };
+
+  // Preset slots for 1-click convenience
+  const applySlotsPreset = (type: 'standard' | 'morning' | 'evening' | 'none') => {
+    setHasUnsavedChanges(true);
+    if (type === 'standard') {
+      setSlots([
+        {
+          id: 'slot-1',
+          availability_id: 'avail-today',
+          start_time: '10:30 AM',
+          end_time: '01:00 PM',
+          slot_status: 'confirmed',
+          slot_label: 'प्रातः कालीन सत्र',
+          display_order: 1
+        },
+        {
+          id: 'slot-2',
+          availability_id: 'avail-today',
+          start_time: '03:30 PM',
+          end_time: '05:30 PM',
+          slot_status: 'confirmed',
+          slot_label: 'सायं कालीन सत्र',
+          display_order: 2
+        }
+      ]);
+    } else if (type === 'morning') {
+      setSlots([
+        {
+          id: 'slot-1',
+          availability_id: 'avail-today',
+          start_time: '10:30 AM',
+          end_time: '01:30 PM',
+          slot_status: 'confirmed',
+          slot_label: 'प्रातः कालीन सत्र',
+          display_order: 1
+        }
+      ]);
+    } else if (type === 'evening') {
+      setSlots([
+        {
+          id: 'slot-1',
+          availability_id: 'avail-today',
+          start_time: '03:30 PM',
+          end_time: '05:30 PM',
+          slot_status: 'confirmed',
+          slot_label: 'सायं कालीन सत्र',
+          display_order: 1
+        }
+      ]);
+    } else if (type === 'none') {
+      setSlots([]);
+    }
+  };
+
+  // ── ACTION 1: Publish Availability with Confirmation & Success Modal ──
+  const triggerSaveAvailabilityModal = () => {
+    setModalState({
+      isOpen: true,
+      type: 'confirm',
+      title: 'आज की स्थिति लाइव प्रकाशित करें?',
+      message: `क्या आप आज की जनसुनवाई स्थिति को "${STATUS_LABELS[status].title}" के रूप में सार्वजनिक पोर्टल पर तुरंत लाइव प्रकाशित करना चाहते हैं? यह सभी नागरिकों को तुरंत दिखाई देगा।`,
+      confirmText: 'हाँ, तुरंत लाइव करें',
+      cancelText: 'रद्द करें',
+      confirmColor: 'teal',
+      onCancel: closeModal,
+      onConfirm: async () => {
+        setModalState(prev => ({ ...prev, isLoading: true }));
+        setSaving(true);
+
+        const result = await DataService.saveAvailability(
+          {
+            schedule_date: getTodayISODate(),
+            status,
+            timing_type: timingType,
+            public_message: publicMessage,
+            alternative_officer_id: alternativeOfficerId || null,
+            alternative_timing: alternativeTiming,
+            published: true
+          },
+          slots,
+          localStorage.getItem('sp_admin_email') || 'PA, SP Office'
+        );
+
+        setSaving(false);
+
+        if (result && !result.success) {
+          setModalState({
+            isOpen: true,
+            type: 'danger',
+            title: 'सहेजने में समस्या आई',
+            message: result.error || 'डेटाबेस में स्थिति सहेजते समय त्रुटि हुई।',
+            confirmText: 'ठीक है',
+            onClose: closeModal,
+          });
+        } else {
+          setHasUnsavedChanges(false);
+          await loadAllData();
+          // Show AMPLR-style Success Modal
+          setModalState({
+            isOpen: true,
+            type: 'success',
+            title: 'Updated!',
+            message: 'आज की जनसुनवाई स्थिति और समय सत्र सार्वजनिक पोर्टल पर लाइव हो चुके हैं।',
+            confirmText: 'OK',
+            onClose: closeModal,
+          });
+        }
+      }
+    });
+  };
+
   const handleAddSlot = () => {
+    setHasUnsavedChanges(true);
     const newSlot: AvailabilitySlot = {
       id: 'slot-' + Date.now(),
       availability_id: 'avail-today',
@@ -116,51 +303,176 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
   };
 
   const handleUpdateSlot = (index: number, field: keyof AvailabilitySlot, value: any) => {
+    setHasUnsavedChanges(true);
     const updated = [...slots];
     updated[index] = { ...updated[index], [field]: value };
     setSlots(updated);
   };
 
-  const handleDeleteSlot = (index: number) => {
-    setSlots(slots.filter((_, i) => i !== index));
+  // ── ACTION 2: Delete Slot with Confirmation Modal ──
+  const triggerDeleteSlotModal = (index: number) => {
+    const targetSlot = slots[index];
+    const slotDesc = targetSlot ? `${targetSlot.slot_label || 'सत्र'} (${targetSlot.start_time} - ${targetSlot.end_time})` : 'यह सत्र';
+
+    setModalState({
+      isOpen: true,
+      type: 'danger',
+      title: 'समय सत्र हटाएं?',
+      message: `क्या आप "${slotDesc}" को आज की जनसुनवाई अनुसूची से हटाना चाहते हैं?`,
+      confirmText: 'हाँ, हटाएं',
+      cancelText: 'रद्द करें',
+      confirmColor: 'rose',
+      onCancel: closeModal,
+      onConfirm: () => {
+        setHasUnsavedChanges(true);
+        setSlots(slots.filter((_, i) => i !== index));
+        setModalState({
+          isOpen: true,
+          type: 'success',
+          title: 'सत्र हटा दिया गया!',
+          message: 'समय सत्र सफलतापूर्वक सूची से हटा दिया गया है।',
+          confirmText: 'OK',
+          onClose: closeModal,
+        });
+      }
+    });
   };
 
-  const handleCreateNotice = async (e: React.FormEvent) => {
+  // ── ACTION 3: Create Notice with Confirmation & Success Modal ──
+  const handleCreateNoticeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNoticeTitle.trim() || !newNoticeMsg.trim()) return;
 
-    await DataService.saveNotice({
-      title: newNoticeTitle,
-      message: newNoticeMsg,
-      published: true,
-      priority: newNoticePriority,
-      publish_at: new Date().toISOString()
+    setModalState({
+      isOpen: true,
+      type: 'confirm',
+      title: 'सार्वजनिक सूचना प्रकाशित करें?',
+      message: `"${newNoticeTitle}" को पोर्टल के नोटिस बोर्ड पर तुरंत प्रकाशित किया जाएगा। क्या आप इसे जारी करना चाहते हैं?`,
+      confirmText: 'हाँ, प्रकाशित करें',
+      cancelText: 'रद्द करें',
+      confirmColor: 'teal',
+      onCancel: closeModal,
+      onConfirm: async () => {
+        setModalState(prev => ({ ...prev, isLoading: true }));
+        await DataService.saveNotice({
+          title: newNoticeTitle,
+          message: newNoticeMsg,
+          published: true,
+          priority: newNoticePriority,
+          publish_at: new Date().toISOString()
+        });
+
+        setNewNoticeTitle('');
+        setNewNoticeMsg('');
+        await loadAllData();
+
+        setModalState({
+          isOpen: true,
+          type: 'success',
+          title: 'Updated!',
+          message: 'सार्वजनिक सूचना पोर्टल पर सफलतापूर्वक जारी कर दी गई है।',
+          confirmText: 'OK',
+          onClose: closeModal,
+        });
+      }
     });
-
-    setNewNoticeTitle('');
-    setNewNoticeMsg('');
-    await loadAllData();
-    alert('सूचना सफलतापूर्वक प्रकाशित की गई!');
   };
 
-  const handleDeleteNotice = async (id: string) => {
-    if (confirm('क्या आप इस सूचना को हटाना चाहते हैं?')) {
-      await DataService.deleteNotice(id);
-      await loadAllData();
-    }
+  // ── ACTION 4: Delete Notice with Confirmation Modal ──
+  const triggerDeleteNoticeModal = (id: string, noticeTitle: string) => {
+    setModalState({
+      isOpen: true,
+      type: 'danger',
+      title: 'सूचना हटाएं?',
+      message: `क्या आप "${noticeTitle}" को सार्वजनिक पोर्टल से हटाना चाहते हैं?`,
+      confirmText: 'हाँ, हटाएं',
+      cancelText: 'रद्द करें',
+      confirmColor: 'rose',
+      onCancel: closeModal,
+      onConfirm: async () => {
+        setModalState(prev => ({ ...prev, isLoading: true }));
+        await DataService.deleteNotice(id);
+        await loadAllData();
+
+        setModalState({
+          isOpen: true,
+          type: 'success',
+          title: 'Updated!',
+          message: 'सार्वजनिक सूचना पोर्टल से सफलतापूर्वक हटा दी गई है।',
+          confirmText: 'OK',
+          onClose: closeModal,
+        });
+      }
+    });
   };
 
-  const handleQuickTemplate = (msg: string) => {
-    setPublicMessage(msg);
+  // ── ACTION 5: Save Officers with Confirmation Modal ──
+  const triggerSaveOfficersModal = () => {
+    setModalState({
+      isOpen: true,
+      type: 'confirm',
+      title: 'अधिकारी प्रोफाइल अपडेट करें?',
+      message: 'क्या आप अधिकारियों के विवरण व पदनाम में किए गए सभी बदलाव सुरक्षित करना चाहते हैं?',
+      confirmText: 'हाँ, सहेजें',
+      cancelText: 'रद्द करें',
+      confirmColor: 'teal',
+      onCancel: closeModal,
+      onConfirm: () => {
+        setModalState({
+          isOpen: true,
+          type: 'success',
+          title: 'Updated!',
+          message: 'अधिकारियों की प्रोफाइल डेटाबेस में सफलतापूर्वक सुरक्षित कर दी गई है।',
+          confirmText: 'OK',
+          onClose: closeModal,
+        });
+      }
+    });
+  };
+
+  // ── ACTION 6: Logout Confirmation Modal ──
+  const triggerLogoutModal = () => {
+    setModalState({
+      isOpen: true,
+      type: 'confirm',
+      title: 'डैशबोर्ड से लॉगआउट करें?',
+      message: 'क्या आप वर्तमान एडमिन सत्र समाप्त करके एडमिन लॉगिन स्क्रीन पर लौटना चाहते हैं?',
+      confirmText: 'हाँ, लॉगआउट करें',
+      cancelText: 'बने रहें',
+      confirmColor: 'navy',
+      onCancel: closeModal,
+      onConfirm: () => {
+        closeModal();
+        onLogout();
+      }
+    });
   };
 
   const publicUrl = window.location.origin;
+  const todayHindi = getTodayHindiDate();
+  const selectedAltOfficer = officers.find(o => o.id === alternativeOfficerId);
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
-      {/* Top Admin Header */}
+    <div className="min-h-screen bg-slate-100 flex flex-col font-sans pb-16">
+      
+      {/* ── GLOBAL FEEDBACK MODAL (Confirmation / Success) ── */}
+      <ActionFeedbackModal
+        isOpen={modalState.isOpen}
+        type={modalState.type}
+        title={modalState.title}
+        message={modalState.message}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+        confirmColor={modalState.confirmColor}
+        isLoading={modalState.isLoading}
+        onConfirm={modalState.onConfirm}
+        onCancel={modalState.onCancel || closeModal}
+        onClose={modalState.onClose || closeModal}
+      />
+
+      {/* ── Top Admin Header ── */}
       <header className="bg-[#0B1728] text-white border-b-2 border-amber-500 sticky top-0 z-30 shadow-md">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <img src="/rajasthan-police-logo.webp" alt="Police Logo" className="w-9 h-9" />
             <div>
@@ -169,13 +481,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                   PA / स्टाफ डैशबोर्ड
                 </span>
                 {isSupabaseConfigured ? (
-                  <span className="inline-flex items-center gap-1 bg-emerald-950 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full border border-emerald-700">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                    Supabase कनेक्टेड
+                  <span className="inline-flex items-center gap-1.5 bg-emerald-950 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-700">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    डेटाबेस लाइव कनेक्टेड
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 bg-amber-950 text-amber-300 text-[10px] px-2 py-0.5 rounded-full border border-amber-700">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
                     लोकल मोड
                   </span>
                 )}
@@ -195,7 +506,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
               <ExternalLink className="w-3.5 h-3.5" />
             </button>
             <button
-              onClick={onLogout}
+              onClick={triggerLogoutModal}
               className="flex items-center gap-1 bg-rose-600/80 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
               title="लॉगआउट"
             >
@@ -206,8 +517,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-[#070F1C] px-4 overflow-x-auto">
-          <div className="max-w-6xl mx-auto flex space-x-1 sm:space-x-4">
+        <div className="bg-[#070F1C] px-4 overflow-x-auto border-t border-slate-800">
+          <div className="max-w-5xl mx-auto flex space-x-1 sm:space-x-4">
             <button
               onClick={() => setActiveTab('availability')}
               className={`py-2.5 px-3 border-b-2 text-xs font-semibold font-devanagari whitespace-nowrap transition-colors flex items-center gap-1.5 ${
@@ -217,7 +528,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
               }`}
             >
               <Clock className="w-3.5 h-3.5" />
-              <span>आज की जनसुनवाई</span>
+              <span>आज की जनसुनवाई (1-Click)</span>
             </button>
 
             <button
@@ -271,112 +582,180 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="max-w-4xl mx-auto w-full p-4 sm:p-6 flex-1">
-        {saveSuccess && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-500 text-white flex items-center gap-2 text-sm font-semibold shadow-md animate-in slide-in-from-top duration-300">
-            <Check className="w-5 h-5" />
-            <span>✓ स्थिति सफलतापूर्वक सहेज ली गई एवं पब्लिक पोर्टल पर लाइव हो चुकी है!</span>
-          </div>
-        )}
+      {/* ── Main Content Area ── */}
+      <main className="max-w-4xl mx-auto w-full p-3 sm:p-6 flex-1">
 
-        {/* TAB 1: AVAILABILITY & SLOTS */}
+        {/* ═══════════════════════════════════════════════════════
+            TAB 1: AVAILABILITY & SLOTS (Redesigned & Super Simple)
+        ═══════════════════════════════════════════════════════ */}
         {activeTab === 'availability' && (
-          <div className="space-y-6">
-            {/* Quick 1-Tap Status Switcher */}
+          <div className="space-y-5">
+
+            {/* Current Live Status Card */}
+            {liveAvailability && (
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: STATUS_LABELS[liveAvailability.status]?.bg || '#f1f5f9' }}
+                  >
+                    {liveAvailability.status === 'available' ? (
+                      <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                    ) : (
+                      <XCircle className="w-6 h-6 text-rose-600" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 font-devanagari">
+                        वर्तमान में वेबसाइट पर लाइव:
+                      </span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                    </div>
+                    <div className="text-base sm:text-lg font-extrabold font-devanagari text-slate-900">
+                      {STATUS_LABELS[liveAvailability.status]?.title || 'अज्ञात स्थिति'}
+                      <span className="text-xs font-normal text-slate-500 ml-2">
+                        ({STATUS_LABELS[liveAvailability.status]?.subtitle})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-right sm:text-right w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-0 border-slate-100">
+                  <div className="text-[11px] text-slate-400 font-devanagari">तारीख: {todayHindi}</div>
+                  <button
+                    type="button"
+                    onClick={onViewPublic}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold font-devanagari inline-flex items-center gap-1 mt-0.5"
+                  >
+                    <span>पोर्टल पर देखें</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Unsaved Changes Banner */}
+            {hasUnsavedChanges && (
+              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 flex items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2 text-xs sm:text-sm font-bold font-devanagari">
+                  <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                  <span>आपने बदलाव किए हैं! इसे वेबसाइट पर लाइव करने के लिए 'प्रकाशित करें' बटन दबाएं।</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={triggerSaveAvailabilityModal}
+                  disabled={saving}
+                  className="bg-[#007074] hover:bg-[#005B5E] text-white font-bold text-xs px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm transition-all flex-shrink-0 font-devanagari"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{saving ? 'सहेजा जा रहा है...' : 'तुरंत पब्लिश करें'}</span>
+                </button>
+              </div>
+            )}
+
+            {/* ── STEP 1: Main Status Selection (1-Click) ── */}
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
               <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-bold text-slate-900 font-devanagari flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-police-700" />
-                  <span>1. आज की जनसुनवाई उपलब्धता चुनें (1-Tap):</span>
+                <label className="text-sm sm:text-base font-extrabold text-slate-900 font-devanagari flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">1</span>
+                  <span>आज पुलिस अधीक्षक महोदय की स्थिति चुनें:</span>
                 </label>
-                <span className="text-xs text-slate-500 font-devanagari">तत्काल प्रभाव से लागू</span>
+                <span className="text-[11px] font-semibold text-slate-500 font-devanagari">1-क्लिक चयन</span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {/* Available */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* 1. Available */}
                 <button
                   type="button"
-                  onClick={() => setStatus('available')}
-                  className={`p-3.5 rounded-xl border-2 text-left transition-all ${
+                  onClick={() => handleSelectStatus('available')}
+                  className={`p-4 rounded-xl border-2 text-left transition-all relative ${
                     status === 'available'
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-400 shadow-sm'
-                      : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+                      ? 'border-emerald-500 bg-emerald-50/70 text-emerald-950 ring-2 ring-emerald-400 shadow-md'
+                      : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                    {status === 'available' && <Check className="w-4 h-4 text-emerald-600" />}
-                  </div>
-                  <strong className="block text-sm font-bold font-devanagari">उपलब्ध हैं</strong>
-                  <span className="text-[11px] text-slate-500">कार्यालय में उपस्थित</span>
+                  {status === 'available' && (
+                    <span className="absolute top-2.5 right-2.5 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full font-devanagari flex items-center gap-1">
+                      <Check className="w-3 h-3" /> चयनित
+                    </span>
+                  )}
+                  <div className="w-3.5 h-3.5 rounded-full bg-emerald-500 mb-2"></div>
+                  <strong className="block text-base font-bold font-devanagari">उपलब्ध हैं</strong>
+                  <span className="text-xs text-slate-600 font-devanagari">कार्यालय में जनसुनवाई करेंगे</span>
                 </button>
 
-                {/* Unavailable */}
+                {/* 2. Unavailable */}
                 <button
                   type="button"
-                  onClick={() => setStatus('unavailable')}
-                  className={`p-3.5 rounded-xl border-2 text-left transition-all ${
+                  onClick={() => handleSelectStatus('unavailable')}
+                  className={`p-4 rounded-xl border-2 text-left transition-all relative ${
                     status === 'unavailable'
-                      ? 'border-rose-500 bg-rose-50 text-rose-950 ring-2 ring-rose-400 shadow-sm'
-                      : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+                      ? 'border-rose-500 bg-rose-50/70 text-rose-950 ring-2 ring-rose-400 shadow-md'
+                      : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-                    {status === 'unavailable' && <Check className="w-4 h-4 text-rose-600" />}
-                  </div>
-                  <strong className="block text-sm font-bold font-devanagari">उपलब्ध नहीं हैं</strong>
-                  <span className="text-[11px] text-slate-500">दौरा / मीटिंग</span>
+                  {status === 'unavailable' && (
+                    <span className="absolute top-2.5 right-2.5 bg-rose-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full font-devanagari flex items-center gap-1">
+                      <Check className="w-3 h-3" /> चयनित
+                    </span>
+                  )}
+                  <div className="w-3.5 h-3.5 rounded-full bg-rose-500 mb-2"></div>
+                  <strong className="block text-base font-bold font-devanagari text-rose-900">उपलब्ध नहीं हैं</strong>
+                  <span className="text-xs text-slate-600 font-devanagari">शासकीय दौरा / बैठक में</span>
                 </button>
 
-                {/* Pending */}
+                {/* 3. Pending */}
                 <button
                   type="button"
-                  onClick={() => setStatus('confirmation_pending')}
-                  className={`p-3.5 rounded-xl border-2 text-left transition-all ${
+                  onClick={() => handleSelectStatus('confirmation_pending')}
+                  className={`p-4 rounded-xl border-2 text-left transition-all relative ${
                     status === 'confirmation_pending'
-                      ? 'border-amber-500 bg-amber-50 text-amber-950 ring-2 ring-amber-400 shadow-sm'
-                      : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+                      ? 'border-amber-500 bg-amber-50/70 text-amber-950 ring-2 ring-amber-400 shadow-md'
+                      : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                    {status === 'confirmation_pending' && <Check className="w-4 h-4 text-amber-600" />}
-                  </div>
-                  <strong className="block text-sm font-bold font-devanagari">पुष्टि बाकी है</strong>
-                  <span className="text-[11px] text-slate-500">समय प्रतीक्षित</span>
+                  {status === 'confirmation_pending' && (
+                    <span className="absolute top-2.5 right-2.5 bg-amber-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full font-devanagari flex items-center gap-1">
+                      <Check className="w-3 h-3" /> चयनित
+                    </span>
+                  )}
+                  <div className="w-3.5 h-3.5 rounded-full bg-amber-500 mb-2"></div>
+                  <strong className="block text-base font-bold font-devanagari">पुष्टि बाकी है</strong>
+                  <span className="text-xs text-slate-600 font-devanagari">समय प्रतीक्षित है</span>
                 </button>
 
-                {/* Time Changed */}
+                {/* 4. Time Changed */}
                 <button
                   type="button"
-                  onClick={() => setStatus('time_changed')}
-                  className={`p-3.5 rounded-xl border-2 text-left transition-all ${
+                  onClick={() => handleSelectStatus('time_changed')}
+                  className={`p-4 rounded-xl border-2 text-left transition-all relative ${
                     status === 'time_changed'
-                      ? 'border-blue-500 bg-blue-50 text-blue-950 ring-2 ring-blue-400 shadow-sm'
-                      : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+                      ? 'border-blue-500 bg-blue-50/70 text-blue-950 ring-2 ring-blue-400 shadow-md'
+                      : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                    {status === 'time_changed' && <Check className="w-4 h-4 text-blue-600" />}
-                  </div>
-                  <strong className="block text-sm font-bold font-devanagari">समय परिवर्तित</strong>
-                  <span className="text-[11px] text-slate-500">नया समय तय</span>
+                  {status === 'time_changed' && (
+                    <span className="absolute top-2.5 right-2.5 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full font-devanagari flex items-center gap-1">
+                      <Check className="w-3 h-3" /> चयनित
+                    </span>
+                  )}
+                  <div className="w-3.5 h-3.5 rounded-full bg-blue-500 mb-2"></div>
+                  <strong className="block text-base font-bold font-devanagari">समय परिवर्तित</strong>
+                  <span className="text-xs text-slate-600 font-devanagari">नया समय तय</span>
                 </button>
               </div>
 
-              {/* Timing Type Selector */}
+              {/* Timing verification toggle */}
               <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">
                 <span className="text-xs font-semibold text-slate-700 font-devanagari">
-                  समय की प्रामाणिकता:
+                  समय की प्रामाणिकता (Status Tag):
                 </span>
                 <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-100">
                   <button
                     type="button"
-                    onClick={() => setTimingType('confirmed')}
-                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                    onClick={() => { setTimingType('confirmed'); setHasUnsavedChanges(true); }}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all font-devanagari ${
                       timingType === 'confirmed'
                         ? 'bg-emerald-600 text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
@@ -386,8 +765,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                   </button>
                   <button
                     type="button"
-                    onClick={() => setTimingType('tentative')}
-                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                    onClick={() => { setTimingType('tentative'); setHasUnsavedChanges(true); }}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all font-devanagari ${
                       timingType === 'tentative'
                         ? 'bg-amber-600 text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
@@ -399,34 +778,116 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
               </div>
             </div>
 
-            {/* Time Slots Manager */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
+            {/* ── STEP 2: Alternative Officer (Highlighted when Unavailable) ── */}
+            <div className={`rounded-2xl p-5 border shadow-sm transition-all ${
+              status === 'unavailable' 
+                ? 'bg-rose-50/50 border-rose-300 ring-1 ring-rose-200' 
+                : 'bg-white border-slate-200'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm sm:text-base font-extrabold text-slate-900 font-devanagari flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">2</span>
+                  <UserCheck className="w-4 h-4 text-police-700" />
+                  <span>वैकल्पिक जनसुनवाई अधिकारी (Alternative Officer):</span>
+                </h3>
+                {status === 'unavailable' && (
+                  <span className="text-[11px] bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded-md font-devanagari">
+                    अनुपलब्धता हेतु आवश्यक
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 font-devanagari mb-3">
+                यदि एसपी सर उपस्थित नहीं हैं, तो क्या नागरिक किसी अन्य वरिष्ठ अधिकारी से मिल सकते हैं?
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 font-devanagari flex items-center gap-1.5">
+                  <label className="block text-xs font-bold text-slate-700 mb-1 font-devanagari">
+                    अधिकृत अधिकारी चुनें:
+                  </label>
+                  <select
+                    value={alternativeOfficerId}
+                    onChange={(e) => { setAlternativeOfficerId(e.target.value); setHasUnsavedChanges(true); }}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white font-devanagari font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  >
+                    <option value="">-- कोई वैकल्पिक अधिकारी अधिकृत नहीं --</option>
+                    {officers.map((off) => (
+                      <option key={off.id} value={off.id}>
+                        {off.name} ({off.designation})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1 font-devanagari">
+                    वैकल्पिक जनसुनवाई का समय व स्थान:
+                  </label>
+                  <input
+                    type="text"
+                    value={alternativeTiming}
+                    onChange={(e) => { setAlternativeTiming(e.target.value); setHasUnsavedChanges(true); }}
+                    placeholder="दोपहर 12:00 बजे से 01:00 बजे तक (कक्ष संख्या 4)"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white font-devanagari focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ── STEP 3: Time Slots with Fast Presets ── */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                <div>
+                  <h3 className="text-sm sm:text-base font-extrabold text-slate-900 font-devanagari flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">3</span>
                     <Clock className="w-4 h-4 text-police-700" />
-                    <span>2. जनसुनवाई समय सत्र (Meeting Slots):</span>
+                    <span>जनसुनवाई समय सत्र (Meeting Slots):</span>
                   </h3>
                   <p className="text-xs text-slate-500 font-devanagari">
-                    नागरिकों को दिखाए जाने वाले सत्र एवं समय
+                    नागरिकों को दिखाए जाने वाले आधिकारिक समय
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAddSlot}
-                  className="flex items-center gap-1 bg-police-50 hover:bg-police-100 text-police-800 text-xs px-2.5 py-1.5 rounded-lg border border-police-200 font-semibold"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>नया सत्र जोड़ें</span>
-                </button>
+
+                {/* Quick Presets Buttons */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-slate-400 font-devanagari mr-1">त्वरित समय:</span>
+                  <button
+                    type="button"
+                    onClick={() => applySlotsPreset('standard')}
+                    className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-800 px-2.5 py-1 rounded-lg border border-slate-300 font-devanagari font-semibold"
+                  >
+                    ⚡ दोनों सत्र
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applySlotsPreset('morning')}
+                    className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-800 px-2.5 py-1 rounded-lg border border-slate-300 font-devanagari font-semibold"
+                  >
+                    ⚡ केवल प्रातः
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applySlotsPreset('evening')}
+                    className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-800 px-2.5 py-1 rounded-lg border border-slate-300 font-devanagari font-semibold"
+                  >
+                    ⚡ केवल सायं
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applySlotsPreset('none')}
+                    className="text-[11px] bg-rose-50 hover:bg-rose-100 text-rose-700 px-2 py-1 rounded-lg border border-rose-200 font-devanagari"
+                  >
+                    रद्द
+                  </button>
+                </div>
               </div>
 
               {slots.length === 0 ? (
-                <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed">
-                  कोई समय सत्र नहीं जोड़ा गया है।
+                <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed font-devanagari">
+                  आज कोई समय सत्र निर्धारित नहीं है।
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {slots.map((slot, idx) => (
                     <div 
                       key={slot.id || idx}
@@ -437,11 +898,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                         value={slot.slot_label}
                         onChange={(e) => handleUpdateSlot(idx, 'slot_label', e.target.value)}
                         placeholder="सत्र नाम (उदा. प्रातः कालीन)"
-                        className="p-2 rounded-lg border border-slate-300 w-full sm:w-44 text-xs bg-white font-devanagari font-semibold"
+                        className="p-2 rounded-lg border border-slate-300 w-full sm:w-40 text-xs bg-white font-devanagari font-semibold"
                       />
 
                       <div className="flex items-center gap-1">
-                        <span className="text-slate-500">से:</span>
+                        <span className="text-slate-500 font-devanagari">से:</span>
                         <input
                           type="text"
                           value={slot.start_time}
@@ -452,7 +913,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                       </div>
 
                       <div className="flex items-center gap-1">
-                        <span className="text-slate-500">तक:</span>
+                        <span className="text-slate-500 font-devanagari">तक:</span>
                         <input
                           type="text"
                           value={slot.end_time}
@@ -465,7 +926,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                       <select
                         value={slot.slot_status}
                         onChange={(e) => handleUpdateSlot(idx, 'slot_status', e.target.value)}
-                        className="p-2 rounded-lg border border-slate-300 text-xs bg-white"
+                        className="p-2 rounded-lg border border-slate-300 text-xs bg-white font-devanagari"
                       >
                         <option value="confirmed">पुष्ट (Confirmed)</option>
                         <option value="tentative">प्रस्तावित (Tentative)</option>
@@ -474,8 +935,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
 
                       <button
                         type="button"
-                        onClick={() => handleDeleteSlot(idx)}
-                        className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg ml-auto"
+                        onClick={() => triggerDeleteSlotModal(idx)}
+                        className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg ml-auto transition-colors"
                         title="सत्र हटाएं"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -484,122 +945,118 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                   ))}
                 </div>
               )}
-            </div>
 
-            {/* Alternative Officer Selector */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-              <h3 className="text-sm font-bold text-slate-900 font-devanagari flex items-center gap-1.5 mb-2">
-                <Users className="w-4 h-4 text-police-700" />
-                <span>3. वैकल्पिक जनसुनवाई अधिकारी (यदि SP सर अनुपलब्ध हों):</span>
-              </h3>
-              <p className="text-xs text-slate-500 font-devanagari mb-3">
-                यदि SP सर दौरे पर हों, तो किस अधिकारी द्वारा जनसुनवाई की जाएगी
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
-                    अधिकारी चुनें:
-                  </label>
-                  <select
-                    value={alternativeOfficerId}
-                    onChange={(e) => setAlternativeOfficerId(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs bg-white font-devanagari"
-                  >
-                    <option value="">-- कोई वैकल्पिक अधिकारी अधिकृत नहीं --</option>
-                    {officers.map((off) => (
-                      <option key={off.id} value={off.id}>
-                        {off.name} ({off.designation})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
-                    वैकल्पिक जनसुनवाई का समय:
-                  </label>
-                  <input
-                    type="text"
-                    value={alternativeTiming}
-                    onChange={(e) => setAlternativeTiming(e.target.value)}
-                    placeholder="दोपहर 12:00 बजे से 01:00 बजे तक"
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs bg-white font-devanagari"
-                  />
-                </div>
+              <div className="mt-3 text-right">
+                <button
+                  type="button"
+                  onClick={handleAddSlot}
+                  className="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs px-3 py-1.5 rounded-lg border border-slate-300 font-semibold font-devanagari"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>अन्य सत्र जोड़ें</span>
+                </button>
               </div>
             </div>
 
-            {/* Public Message & Quick Templates */}
+            {/* ── STEP 4: Public Message / Advisory ── */}
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-              <h3 className="text-sm font-bold text-slate-900 font-devanagari mb-1">
-                4. नागरिकों के लिए सार्वजनिक संदेश (Public Advisory):
+              <h3 className="text-sm sm:text-base font-extrabold text-slate-900 font-devanagari mb-1 flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">4</span>
+                <span>नागरिकों हेतु सार्वजनिक संदेश (Advisory Note):</span>
               </h3>
               <p className="text-xs text-slate-500 font-devanagari mb-2">
-                यह संदेश पोर्टल के मुख्य कार्ड पर दिखेगा
+                यह संदेश मुख्य कार्ड पर नागरिकों को दिखाई देगा
               </p>
 
               <textarea
                 rows={3}
                 value={publicMessage}
-                onChange={(e) => setPublicMessage(e.target.value)}
-                placeholder="उदा. आज पुलिस अधीक्षक महोदय उपस्थित हैं। परिवादी अपने परिवाद के साथ सीधे मिल सकते हैं..."
-                className="w-full p-3 rounded-xl border border-slate-300 text-xs sm:text-sm font-devanagari focus:ring-2 focus:ring-police-700 focus:outline-none"
+                onChange={(e) => { setPublicMessage(e.target.value); setHasUnsavedChanges(true); }}
+                placeholder="उदा. आज पुलिस अधीक्षक महोदय उपस्थित हैं..."
+                className="w-full p-3 rounded-xl border border-slate-300 text-xs sm:text-sm font-devanagari focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
+            </div>
 
-              {/* Quick Template Buttons */}
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                <span className="text-[11px] text-slate-400 font-semibold self-center mr-1">त्वरित संदेश:</span>
-                <button
-                  type="button"
-                  onClick={() => handleQuickTemplate('आज पुलिस अधीक्षक महोदय कार्यालय में जनसुनवाई हेतु उपस्थित रहेंगे। नागरिक अपने परिवाद के साथ उपस्थित हो सकते हैं।')}
-                  className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded border border-slate-300 font-devanagari"
-                >
-                  उपस्थिति संदेश
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickTemplate('विशेष शासकीय कानून-व्यवस्था बैठक के कारण आज जनसुनवाई स्थगित रहेगी। परिवाद स्वागत पटल पर जमा कराए जा सकते हैं।')}
-                  className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded border border-slate-300 font-devanagari"
-                >
-                  बैठक संदेश
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickTemplate('एसपी सर राजकीय दौरे पर हैं। आज जनसुनवाई अतिरिक्त पुलिस अधीक्षक द्वारा कक्ष संख्या 4 में की जाएगी।')}
-                  className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded border border-slate-300 font-devanagari"
-                >
-                  दौरा / वैकल्पिक अधिकारी संदेश
-                </button>
+            {/* ── LIVE PREVIEW: Exactly What Citizens See ── */}
+            <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-lg border border-slate-800">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-400 font-devanagari">
+                    नागरिक पूर्वावलोकन (Live Citizen Preview):
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400 font-devanagari">वेबसाइट पर ऐसा दिखेगा</span>
+              </div>
+
+              {/* Mini Simulation of Public Portal Card */}
+              <div className="bg-white text-slate-900 rounded-xl p-4 border border-slate-200 shadow-inner">
+                <div className="flex items-center justify-between border-b pb-2 mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wide bg-slate-100 px-2 py-0.5 rounded text-slate-700 font-devanagari">
+                    आज की स्थिति
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-devanagari">{todayHindi}</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: STATUS_LABELS[status].bg }}>
+                    {status === 'available' ? (
+                      <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                    ) : (
+                      <XCircle className="w-6 h-6 text-rose-600" />
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="text-base font-extrabold font-devanagari leading-snug">
+                      {STATUS_LABELS[status].title}
+                    </h4>
+                    <p className="text-xs text-slate-500 font-devanagari">
+                      {STATUS_LABELS[status].subtitle}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 p-2.5 rounded-lg bg-slate-50 text-xs text-slate-700 font-devanagari border border-slate-200">
+                  <strong>कार्यालय संदेश:</strong> {publicMessage || 'कोई संदेश नहीं'}
+                </div>
+
+                {status === 'unavailable' && selectedAltOfficer && (
+                  <div className="mt-2 p-2.5 rounded-lg bg-blue-50 text-xs text-blue-950 font-devanagari border border-blue-200">
+                    <strong>वैकल्पिक जनसुनवाई:</strong> {selectedAltOfficer.name} ({selectedAltOfficer.designation}) — {alternativeTiming}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Save Button */}
-            <div className="sticky bottom-4 z-20">
+            {/* ── BIG SAVE & PUBLISH ACTION BAR ── */}
+            <div className="sticky bottom-3 z-30 pt-2">
               <button
                 type="button"
-                onClick={handleSaveAvailability}
+                onClick={triggerSaveAvailabilityModal}
                 disabled={saving}
-                className="w-full py-3.5 bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-800 hover:from-emerald-700 hover:to-teal-900 text-white rounded-2xl font-bold text-sm sm:text-base shadow-xl flex items-center justify-center gap-2 transition-all active:scale-98 disabled:opacity-50"
+                className="w-full py-4 bg-gradient-to-r from-[#007074] via-teal-700 to-slate-900 hover:from-teal-700 hover:to-slate-950 text-white rounded-2xl font-extrabold text-base sm:text-lg shadow-2xl flex items-center justify-center gap-3 transition-all active:scale-98 disabled:opacity-50 ring-4 ring-teal-500/20 font-devanagari"
               >
-                <Save className="w-5 h-5 text-amber-300" />
-                <span>{saving ? 'सहेजा जा रहा है...' : '✓ आज की स्थिति तुरंत प्रकाशित करें (Publish Live)'}</span>
+                <Save className="w-6 h-6 text-amber-300 animate-bounce" />
+                <span>
+                  {saving ? 'डेटाबेस में लाइव किया जा रहा है...' : '🚀 आज की स्थिति तुरंत पोर्टल पर लाइव करें (Publish Live Now)'}
+                </span>
               </button>
             </div>
           </div>
         )}
 
-        {/* TAB 2: PUBLIC NOTICES */}
+        {/* ═══════════════════════════════════════════════════════
+            TAB 2: PUBLIC NOTICES
+        ═══════════════════════════════════════════════════════ */}
         {activeTab === 'notices' && (
           <div className="space-y-6">
-            {/* Create New Notice */}
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
               <h3 className="text-sm font-bold text-slate-900 font-devanagari mb-3 flex items-center gap-1.5">
                 <Plus className="w-4 h-4 text-police-700" />
                 <span>नई सार्वजनिक सूचना जारी करें:</span>
               </h3>
 
-              <form onSubmit={handleCreateNotice} className="space-y-3">
+              <form onSubmit={handleCreateNoticeSubmit} className="space-y-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
                     सूचना का शीर्षक:
@@ -634,7 +1091,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                     <select
                       value={newNoticePriority}
                       onChange={(e) => setNewNoticePriority(e.target.value as any)}
-                      className="p-1.5 rounded-lg border border-slate-300 text-xs"
+                      className="p-1.5 rounded-lg border border-slate-300 text-xs font-devanagari"
                     >
                       <option value="normal">सामान्य (Normal)</option>
                       <option value="high">अति महत्वपूर्ण (High)</option>
@@ -643,7 +1100,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
 
                   <button
                     type="submit"
-                    className="ml-auto bg-police-800 hover:bg-police-900 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
+                    className="ml-auto bg-[#007074] hover:bg-[#005B5E] text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm font-devanagari transition-all"
                   >
                     <Save className="w-3.5 h-3.5 text-amber-300" />
                     <span>सूचना प्रकाशित करें</span>
@@ -652,14 +1109,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
               </form>
             </div>
 
-            {/* List Existing Notices */}
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
               <h3 className="text-sm font-bold text-slate-900 font-devanagari mb-3">
                 सक्रिय सार्वजनिक सूचनाएं ({notices.length}):
               </h3>
 
               {notices.length === 0 ? (
-                <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl">
+                <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl font-devanagari">
                   कोई सूचना उपलब्ध नहीं है।
                 </div>
               ) : (
@@ -670,7 +1126,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                         <div className="flex items-center gap-2">
                           <h4 className="font-bold text-sm text-slate-900 font-devanagari">{n.title}</h4>
                           {n.priority === 'high' && (
-                            <span className="text-[10px] bg-rose-500 text-white font-bold px-2 py-0.5 rounded-full">
+                            <span className="text-[10px] bg-rose-500 text-white font-bold px-2 py-0.5 rounded-full font-devanagari">
                               महत्वपूर्ण
                             </span>
                           )}
@@ -678,8 +1134,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                         <p className="text-xs text-slate-600 font-devanagari mt-1">{n.message}</p>
                       </div>
                       <button
-                        onClick={() => handleDeleteNotice(n.id)}
-                        className="text-rose-600 hover:bg-rose-100 p-2 rounded-lg"
+                        onClick={() => triggerDeleteNoticeModal(n.id, n.title)}
+                        className="text-rose-600 hover:bg-rose-100 p-2 rounded-lg transition-colors"
                         title="हटाएं"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -692,7 +1148,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
           </div>
         )}
 
-        {/* TAB 3: OFFICER PROFILES */}
+        {/* ═══════════════════════════════════════════════════════
+            TAB 3: OFFICER PROFILES
+        ═══════════════════════════════════════════════════════ */}
         {activeTab === 'officers' && (
           <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-sm font-bold text-slate-900 font-devanagari mb-1">
@@ -705,15 +1163,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
             <div className="space-y-4">
               {officers.map((officer, index) => (
                 <div key={officer.id || index} className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col sm:flex-row gap-4 items-start">
-                  <img
-                    src={officer.photo_url || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=400&auto=format&fit=crop&q=80'}
-                    alt={officer.name}
-                    className="w-16 h-16 rounded-xl object-cover border-2 border-slate-300"
-                  />
+                  <div className="w-16 h-16 rounded-xl bg-slate-200 flex items-center justify-center font-bold text-slate-700 text-lg border-2 border-slate-300">
+                    {officer.name.charAt(0)}
+                  </div>
                   <div className="flex-1 space-y-2 w-full text-xs">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
-                        <span className="font-semibold text-slate-600">नाम:</span>
+                        <span className="font-semibold text-slate-600 font-devanagari">नाम:</span>
                         <input
                           type="text"
                           value={officer.name}
@@ -722,11 +1178,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                             updated[index].name = e.target.value;
                             setOfficers(updated);
                           }}
-                          className="w-full p-1.5 mt-0.5 rounded border border-slate-300 bg-white font-bold"
+                          className="w-full p-2 mt-0.5 rounded-lg border border-slate-300 bg-white font-bold font-devanagari"
                         />
                       </div>
                       <div>
-                        <span className="font-semibold text-slate-600">पदनाम:</span>
+                        <span className="font-semibold text-slate-600 font-devanagari">पदनाम:</span>
                         <input
                           type="text"
                           value={officer.designation}
@@ -735,14 +1191,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                             updated[index].designation = e.target.value;
                             setOfficers(updated);
                           }}
-                          className="w-full p-1.5 mt-0.5 rounded border border-slate-300 bg-white"
+                          className="w-full p-2 mt-0.5 rounded-lg border border-slate-300 bg-white font-devanagari"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
-                        <span className="font-semibold text-slate-600">कार्यालय दूरभाष:</span>
+                        <span className="font-semibold text-slate-600 font-devanagari">कार्यालय दूरभाष:</span>
                         <input
                           type="text"
                           value={officer.phone}
@@ -751,20 +1207,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                             updated[index].phone = e.target.value;
                             setOfficers(updated);
                           }}
-                          className="w-full p-1.5 mt-0.5 rounded border border-slate-300 bg-white font-mono"
+                          className="w-full p-2 mt-0.5 rounded-lg border border-slate-300 bg-white font-mono"
                         />
                       </div>
                       <div>
-                        <span className="font-semibold text-slate-600">फोटो URL:</span>
+                        <span className="font-semibold text-slate-600 font-devanagari">विवरण:</span>
                         <input
                           type="text"
-                          value={officer.photo_url}
+                          value={officer.description || ''}
                           onChange={(e) => {
                             const updated = [...officers];
-                            updated[index].photo_url = e.target.value;
+                            updated[index].description = e.target.value;
                             setOfficers(updated);
                           }}
-                          className="w-full p-1.5 mt-0.5 rounded border border-slate-300 bg-white text-[11px]"
+                          className="w-full p-2 mt-0.5 rounded-lg border border-slate-300 bg-white font-devanagari text-[11px]"
                         />
                       </div>
                     </div>
@@ -774,8 +1230,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
             </div>
             
             <button
-              onClick={() => alert('अधिकारी विवरण अपडेट कर दिया गया है!')}
-              className="mt-3 bg-police-800 hover:bg-police-900 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-sm"
+              onClick={triggerSaveOfficersModal}
+              className="mt-3 bg-[#007074] hover:bg-[#005B5E] text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-sm font-devanagari transition-all"
             >
               <Save className="w-3.5 h-3.5 text-amber-300" />
               <span>अधिकारी प्रोफाइल सहेजें</span>
@@ -783,10 +1239,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
           </div>
         )}
 
-        {/* TAB 4: QR CODE POSTER */}
+        {/* ═══════════════════════════════════════════════════════
+            TAB 4: QR CODE POSTER
+        ═══════════════════════════════════════════════════════ */}
         {activeTab === 'qr' && (
           <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm text-center">
-            <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">
+            <span className="text-xs font-bold text-amber-600 uppercase tracking-wider font-devanagari">
               कार्यालय काउंटर / स्वागत पटल हेतु
             </span>
             <h3 className="text-lg font-bold text-slate-900 font-devanagari mt-1">
@@ -838,7 +1296,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
 
             <button
               onClick={() => window.print()}
-              className="bg-[#0B1728] hover:bg-[#112240] text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md inline-flex items-center gap-2"
+              className="bg-[#0B1728] hover:bg-[#112240] text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md inline-flex items-center gap-2 font-devanagari"
             >
               <Download className="w-4 h-4 text-amber-400" />
               <span>पोस्टर प्रिंट करें (Print / PDF)</span>
@@ -846,7 +1304,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
           </div>
         )}
 
-        {/* TAB 5: AUDIT LOGS */}
+        {/* ═══════════════════════════════════════════════════════
+            TAB 5: AUDIT LOGS
+        ═══════════════════════════════════════════════════════ */}
         {activeTab === 'logs' && (
           <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
             <h3 className="text-sm font-bold text-slate-900 font-devanagari mb-1">

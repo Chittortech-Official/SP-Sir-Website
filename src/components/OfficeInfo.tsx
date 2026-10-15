@@ -46,18 +46,18 @@ const CITIZEN_GUIDELINES = [
 export const OfficeInfo: React.FC = () => {
   return (
     <section className="space-y-4" aria-labelledby="office-info-heading">
-      {/* Section heading */}
-      <div>
-        <p className="section-eyebrow font-devanagari">नागरिक जानकारी</p>
-        <h2 id="office-info-heading" className="section-title font-devanagari">
+      {/* Section heading - Centered */}
+      <div className="text-center mb-1">
+        <p className="section-eyebrow font-devanagari text-center">नागरिक जानकारी</p>
+        <h2 id="office-info-heading" className="section-title font-devanagari text-center">
           आवश्यक निर्देश एवं संपर्क
         </h2>
       </div>
 
       {/* Citizen Guidelines */}
       <div className="card">
-        <div className="card-header">
-          <span className="text-xs font-bold text-slate-700 font-devanagari">
+        <div className="card-header justify-center text-center">
+          <span className="text-xs font-bold text-slate-800 font-devanagari">
             जनसुनवाई में आने वाले नागरिकों हेतु आवश्यक निर्देश
           </span>
         </div>
@@ -84,7 +84,7 @@ export const OfficeInfo: React.FC = () => {
       {/* Emergency Numbers */}
       <div>
         <h3
-          className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3 font-devanagari"
+          className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 mb-3 font-devanagari text-center"
           style={{ letterSpacing: '0.1em' }}
         >
           आपातकालीन सहायता नंबर

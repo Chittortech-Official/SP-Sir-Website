@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, Building2, Star } from 'lucide-react';
+import { Phone, Star } from 'lucide-react';
 import type { OfficerProfile } from '../types/database';
 
 interface OfficerProfilesProps {
@@ -30,9 +30,9 @@ export const OfficerProfiles: React.FC<OfficerProfilesProps> = ({ officers }) =>
 
   return (
     <section className="space-y-3" aria-labelledby="officers-heading">
-      <div>
-        <p className="section-eyebrow font-devanagari">जिला पुलिस नेतृत्व</p>
-        <h2 id="officers-heading" className="section-title font-devanagari">
+      <div className="text-center mb-1">
+        <p className="section-eyebrow font-devanagari text-center">जिला पुलिस नेतृत्व</p>
+        <h2 id="officers-heading" className="section-title font-devanagari text-center">
           पुलिस अधिकारी — संपर्क जानकारी
         </h2>
       </div>
@@ -46,74 +46,79 @@ export const OfficerProfiles: React.FC<OfficerProfilesProps> = ({ officers }) =>
           return (
             <div
               key={officer.id || index}
-              className="card transition-all"
-              style={isFirst ? { border: '1px solid #FDE68A' } : {}}
+              className="card transition-all text-center"
+              style={isFirst ? { border: '1.5px solid #FDE68A', boxShadow: '0 2px 10px rgba(201, 162, 39, 0.08)' } : {}}
             >
-              <div className="card-body">
-                <div className="flex items-start gap-3.5">
-                  {/* Avatar with initials */}
-                  <div
-                    className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-white font-bold text-base"
-                    style={{
-                      background: isFirst
-                        ? 'linear-gradient(135deg, #78350F 0%, #B45309 100%)'
-                        : 'linear-gradient(135deg, #1D3557 0%, #2A4A7F 100%)',
-                      minWidth: isFirst ? '56px' : '48px',
-                      minHeight: isFirst ? '56px' : '48px',
-                      fontSize: isFirst ? '18px' : '15px',
-                    }}
+              <div className="card-body p-4 sm:p-5 flex flex-col items-center justify-center text-center">
+                {/* Avatar with initials - Centered */}
+                <div
+                  className="rounded-full flex items-center justify-center text-white font-bold mb-2 shadow-sm flex-shrink-0"
+                  style={{
+                    background: isFirst
+                      ? 'linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)'
+                      : 'linear-gradient(135deg, #1D3557 0%, #2A4A7F 100%)',
+                    width: isFirst ? '52px' : '46px',
+                    height: isFirst ? '52px' : '46px',
+                    fontSize: isFirst ? '17px' : '15px',
+                    border: isFirst ? '2px solid #C9A227' : '1.5px solid #CBD5E1',
+                  }}
+                >
+                  {initials}
+                </div>
+
+                {/* Rank Badge - Centered */}
+                <div className="mb-1">
+                  <span
+                    className="inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-full font-sans tracking-wide"
+                    style={{ background: rankBadge.bg, color: rankBadge.color, border: `1px solid ${rankBadge.border}` }}
                   >
-                    {initials}
-                  </div>
+                    {rankBadge.label}
+                  </span>
+                </div>
 
-                  {/* Officer details */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-bold text-slate-900 font-devanagari leading-snug"
-                            style={{ fontSize: isFirst ? '15px' : '13px' }}>
-                            {officer.name}
-                          </h3>
-                          {isFirst && <Star className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" fill="currentColor" />}
-                        </div>
-                        <p className="text-xs text-slate-600 font-devanagari mt-0.5 leading-snug">
-                          {officer.designation}
-                        </p>
-                        {officer.description && (
-                          <p className="text-[10px] text-slate-400 font-devanagari mt-1 leading-relaxed">
-                            {officer.description}
-                          </p>
-                        )}
-                      </div>
+                {/* Officer Name with Star if SP - Centered */}
+                <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                  <h3
+                    className="font-bold text-slate-900 font-devanagari leading-snug"
+                    style={{ fontSize: isFirst ? '16px' : '14px' }}
+                  >
+                    {officer.name}
+                  </h3>
+                  {isFirst && <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 flex-shrink-0" />}
+                </div>
 
-                      {/* Rank badge */}
-                      <span
-                        className="flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full font-sans"
-                        style={{ background: rankBadge.bg, color: rankBadge.color, border: `1px solid ${rankBadge.border}` }}
-                      >
-                        {rankBadge.label}
-                      </span>
-                    </div>
+                {/* Designation - Centered */}
+                <p className="text-xs sm:text-[13px] text-police-800 font-semibold font-devanagari leading-snug">
+                  {officer.designation}
+                </p>
 
-                    {/* Contact row */}
-                    <div className="flex items-center gap-2 mt-3 pt-2.5" style={{ borderTop: '1px solid #F1F5F9' }}>
-                      <Building2 className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                      <span className="text-[10px] text-slate-400 font-devanagari flex-1">कार्यालय संपर्क</span>
-                      {officer.phone ? (
-                        <a
-                          href={`tel:${officer.phone}`}
-                          className="flex items-center gap-1.5 text-xs font-semibold font-sans-num transition-all"
-                          style={{ color: '#065F46', background: '#F0FDF4', border: '1px solid #BBF7D0', padding: '3px 10px', borderRadius: '8px' }}
-                        >
-                          <Phone className="w-3 h-3" />
-                          {officer.phone}
-                        </a>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 font-devanagari">उपलब्ध नहीं</span>
-                      )}
-                    </div>
-                  </div>
+                {/* Description - Centered */}
+                {officer.description && (
+                  <p className="text-[11px] text-slate-500 font-devanagari mt-1 max-w-sm mx-auto leading-relaxed">
+                    {officer.description}
+                  </p>
+                )}
+
+                {/* Centered Contact Button */}
+                <div className="mt-3 pt-2.5 border-t border-slate-100 w-full flex justify-center">
+                  {officer.phone ? (
+                    <a
+                      href={`tel:${officer.phone}`}
+                      className="inline-flex items-center gap-2 text-xs font-semibold font-sans-num transition-all hover:bg-emerald-100"
+                      style={{
+                        color: '#065F46',
+                        background: '#F0FDF4',
+                        border: '1px solid #BBF7D0',
+                        padding: '5px 14px',
+                        borderRadius: '9999px',
+                      }}
+                    >
+                      <Phone className="w-3 h-3 text-emerald-600" />
+                      <span>कार्यालय संपर्क: <strong>{officer.phone}</strong></span>
+                    </a>
+                  ) : (
+                    <span className="text-[11px] text-slate-400 font-devanagari">कार्यालय संपर्क उपलब्ध नहीं</span>
+                  )}
                 </div>
               </div>
             </div>

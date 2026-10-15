@@ -21,10 +21,16 @@ export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
-// Official Real Officer Profiles for Chittorgarh District
+// Helper to check valid UUID
+export const isValidUUID = (id?: string | null): boolean => {
+  if (!id) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+};
+
+// Official Real Officer Profiles for Chittorgarh District (with real Supabase UUIDs)
 const INITIAL_OFFICERS: OfficerProfile[] = [
   {
-    id: 'off-1',
+    id: 'eaddd30b-4a41-46e6-a9ad-4fb5e61f571d',
     name: 'श्री धर्मेन्द्र सिंह (IPS)',
     designation: 'पुलिस अधीक्षक (SP), चित्तौड़गढ़',
     phone: '01472-295797',
@@ -35,20 +41,22 @@ const INITIAL_OFFICERS: OfficerProfile[] = [
     display_order: 1
   },
   {
-    id: 'off-2',
+    id: '2dfaca8c-369e-4d94-aee7-e04f6e9aac21',
     name: 'श्री गजेन्द्र सिंह जोधा (RPS)',
     designation: 'अतिरिक्त पुलिस अधीक्षक (Addl. SP)',
     phone: '01472-240222',
+    email: undefined,
     photo_url: undefined,
     description: 'कार्यालय अतिरिक्त पुलिस अधीक्षक, चित्तौड़गढ़',
     is_active: true,
     display_order: 2
   },
   {
-    id: 'off-3',
+    id: 'd0c2d2c1-2e62-4917-b976-58ade3523849',
     name: 'श्री करण सिंह (RPS)',
     designation: 'वृत्ताधिकारी / उप अधीक्षक (CO City)',
     phone: '01472-241044',
+    email: undefined,
     photo_url: undefined,
     description: 'वृत्त कार्यालय, चित्तौड़गढ़ शहर',
     is_active: true,
@@ -56,9 +64,12 @@ const INITIAL_OFFICERS: OfficerProfile[] = [
   }
 ];
 
-const getTodayISODate = () => {
+export const getTodayISODate = () => {
   const now = new Date();
-  return now.toISOString().split('T')[0];
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 const INITIAL_SLOTS: AvailabilitySlot[] = [
@@ -88,7 +99,7 @@ const INITIAL_AVAILABILITY: Availability = {
   status: 'available',
   timing_type: 'confirmed',
   public_message: 'आज पुलिस अधीक्षक महोदय कार्यालय में उपस्थित हैं। परिवादी जनसुनवाई कक्ष में उपस्थित होकर अपनी समस्या प्रस्तुत कर सकते हैं।',
-  alternative_officer_id: 'off-2',
+  alternative_officer_id: '2dfaca8c-369e-4d94-aee7-e04f6e9aac21',
   alternative_timing: 'दोपहर 12:00 बजे से 01:00 बजे तक',
   published: true,
   updated_at: new Date().toISOString(),
@@ -134,6 +145,22 @@ const setStored = <T>(key: string, value: T): void => {
   }
 };
 
+// Cross-tab broadcast notifier
+export const notifyAvailabilityUpdated = () => {
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sp_availability_changed', { detail: { time: Date.now() } }));
+      if ('BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('sp_portal_sync');
+        bc.postMessage({ type: 'SYNC_NOW', time: Date.now() });
+        bc.close();
+      }
+    }
+  } catch (e) {
+    console.warn('Broadcast error', e);
+  }
+};
+
 export const DataService = {
   async getOfficers(): Promise<OfficerProfile[]> {
     if (supabase) {
@@ -143,7 +170,10 @@ export const DataService = {
           .select('*')
           .eq('is_active', true)
           .order('display_order', { ascending: true });
-        if (!error && data && data.length > 0) return data;
+        if (!error && data && data.length > 0) {
+          setStored(STORAGE_KEYS.OFFICERS, data);
+          return data;
+        }
       } catch (e) {
         console.warn('Supabase getOfficers failed, using fallback', e);
       }
@@ -157,12 +187,29 @@ export const DataService = {
 
     if (supabase) {
       try {
-        const { data: availData, error: availError } = await supabase
+        // Try getting today's record
+        let { data: availData, error: availError } = await supabase
           .from('availability')
           .select('*')
           .eq('schedule_date', today)
-          .eq('published', true)
           .maybeSingle();
+
+        // If today has no entry yet, get latest published entry
+        if (!availData) {
+          const { data: latestData } = await supabase
+            .from('availability')
+            .select('*')
+            .order('schedule_date', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (latestData) {
+            availData = {
+              ...latestData,
+              schedule_date: today
+            };
+          }
+        }
 
         if (!availError && availData) {
           const { data: slotsData } = await supabase
@@ -173,9 +220,14 @@ export const DataService = {
 
           const altOfficer = officers.find(o => o.id === availData.alternative_officer_id);
 
+          const finalSlots = (slotsData && slotsData.length > 0) ? slotsData : INITIAL_SLOTS;
+
+          setStored(STORAGE_KEYS.AVAILABILITY, availData);
+          setStored(STORAGE_KEYS.SLOTS, finalSlots);
+
           return {
             availability: availData,
-            slots: slotsData || [],
+            slots: finalSlots,
             alternativeOfficer: altOfficer
           };
         }
@@ -202,7 +254,10 @@ export const DataService = {
           .select('*')
           .eq('published', true)
           .order('created_at', { ascending: false });
-        if (!error && data && data.length > 0) return data;
+        if (!error && data && data.length > 0) {
+          setStored(STORAGE_KEYS.NOTICES, data);
+          return data;
+        }
       } catch (e) {
         console.warn('Supabase getPublicNotices failed, using fallback', e);
       }
@@ -214,24 +269,30 @@ export const DataService = {
     availability: Partial<Availability>, 
     slots: AvailabilitySlot[],
     adminName: string = 'PA, SP Office'
-  ): Promise<boolean> {
+  ): Promise<{ success: boolean; error?: string }> {
     const today = getTodayISODate();
+    const cleanAlternativeOfficerId: string | null = (availability.alternative_officer_id && isValidUUID(availability.alternative_officer_id))
+      ? availability.alternative_officer_id 
+      : null;
+
     const updatedRecord: Availability = {
       id: availability.id || 'avail-today',
       schedule_date: availability.schedule_date || today,
       status: availability.status || 'available',
       timing_type: availability.timing_type || 'confirmed',
       public_message: availability.public_message || '',
-      alternative_officer_id: availability.alternative_officer_id || null,
+      alternative_officer_id: cleanAlternativeOfficerId,
       alternative_timing: availability.alternative_timing || '',
       published: true,
       updated_at: new Date().toISOString(),
       updated_by: adminName
     };
 
+    // Store in localStorage immediately
     setStored(STORAGE_KEYS.AVAILABILITY, updatedRecord);
     setStored(STORAGE_KEYS.SLOTS, slots);
 
+    // Save to Supabase
     if (supabase) {
       try {
         const { data: upsertData, error: upsertError } = await supabase
@@ -241,7 +302,7 @@ export const DataService = {
             status: updatedRecord.status,
             timing_type: updatedRecord.timing_type,
             public_message: updatedRecord.public_message,
-            alternative_officer_id: updatedRecord.alternative_officer_id,
+            alternative_officer_id: cleanAlternativeOfficerId,
             alternative_timing: updatedRecord.alternative_timing,
             published: true,
             updated_at: updatedRecord.updated_at,
@@ -250,7 +311,14 @@ export const DataService = {
           .select()
           .single();
 
-        if (!upsertError && upsertData) {
+        if (upsertError) {
+          console.error('Supabase availability upsert error:', upsertError);
+          notifyAvailabilityUpdated();
+          return { success: false, error: upsertError.message };
+        }
+
+        if (upsertData) {
+          // Update slots
           await supabase.from('availability_slots').delete().eq('availability_id', upsertData.id);
           
           if (slots.length > 0) {
@@ -264,20 +332,30 @@ export const DataService = {
             }));
             await supabase.from('availability_slots').insert(slotsToInsert);
           }
+
+          // Update updatedRecord with new UUID id
+          updatedRecord.id = upsertData.id;
+          setStored(STORAGE_KEYS.AVAILABILITY, updatedRecord);
         }
 
+        // Add audit log
         await supabase.from('admin_audit_logs').insert({
           admin_user: adminName,
           action: 'UPDATE_AVAILABILITY',
           record_type: 'availability',
-          details: `स्थिति: ${updatedRecord.status}, समय प्रकार: ${updatedRecord.timing_type}`
+          details: `स्थिति: ${updatedRecord.status}, संदेश: ${updatedRecord.public_message}`
         });
-      } catch (err) {
+
+      } catch (err: any) {
         console.error('Supabase write error:', err);
+        notifyAvailabilityUpdated();
+        return { success: false, error: err?.message || 'Database error' };
       }
     }
 
-    return true;
+    // Trigger instant cross-tab update
+    notifyAvailabilityUpdated();
+    return { success: true };
   },
 
   async saveNotice(notice: Omit<PublicNotice, 'id' | 'created_at'> & { id?: string }): Promise<boolean> {

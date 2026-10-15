@@ -6,18 +6,18 @@ import { HearingSlots } from '../components/HearingSlots';
 import { OfficerProfiles } from '../components/OfficerProfiles';
 import { PublicNotices } from '../components/PublicNotices';
 import { OfficeInfo } from '../components/OfficeInfo';
-import { ChittorTechSection } from '../components/ChittorTechSection';
 import { Footer } from '../components/Footer';
-import { DataService } from '../lib/supabase';
+import { DataService, supabase } from '../lib/supabase';
 import type { Availability, AvailabilitySlot, OfficerProfile, PublicNotice } from '../types/database';
 import { AlertTriangle, RefreshCw, Calendar } from 'lucide-react';
 import { getTodayHindiDate } from '../utils/dateHindi';
 
 interface PublicPortalProps {
   onOpenAdmin: () => void;
+  onOpenInitiative?: () => void;
 }
 
-export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin }) => {
+export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin, onOpenInitiative }) => {
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
 
@@ -55,10 +55,40 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin }) => {
     // Initial fetch on mount
     loadData(true);
 
-    // Automatic periodic refresh every 45 seconds (no manual button needed)
+    // Instant local sync via CustomEvent & Storage
+    const handleInstantSync = () => {
+      loadData(false);
+    };
+    window.addEventListener('sp_availability_changed', handleInstantSync);
+    window.addEventListener('storage', handleInstantSync);
+
+    // BroadcastChannel for instant cross-tab sync
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      bc = new BroadcastChannel('sp_portal_sync');
+      bc.onmessage = () => {
+        loadData(false);
+      };
+    }
+
+    // Supabase Realtime subscription
+    let channel: any = null;
+    if (supabase) {
+      channel = supabase
+        .channel('public-portal-live')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'availability' }, () => {
+          loadData(false);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'availability_slots' }, () => {
+          loadData(false);
+        })
+        .subscribe();
+    }
+
+    // Automatic periodic refresh every 30 seconds
     const intervalId = setInterval(() => {
       loadData(false);
-    }, 45000);
+    }, 30000);
 
     // Automatic refresh when citizen returns to this tab
     const handleTabActive = () => {
@@ -73,6 +103,10 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin }) => {
     // Clean up timers and listeners
     return () => {
       clearInterval(intervalId);
+      window.removeEventListener('sp_availability_changed', handleInstantSync);
+      window.removeEventListener('storage', handleInstantSync);
+      if (bc) bc.close();
+      if (channel && supabase) supabase.removeChannel(channel);
       document.removeEventListener('visibilitychange', handleTabActive);
       window.removeEventListener('focus', handleTabActive);
     };
@@ -93,27 +127,27 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin }) => {
           paddingBottom: '26px',
         }}
       >
-        <div className="page-container">
-          {/* Today's date pill */}
-          <div className="flex items-center gap-2 mb-2.5">
+        <div className="page-container text-center flex flex-col items-center">
+          {/* Today's date pill - Centered */}
+          <div className="flex items-center justify-center gap-2 mb-2.5">
             <div
-              className="flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-devanagari font-medium"
-              style={{ background: 'rgba(201,162,39,0.15)', border: '1px solid rgba(201,162,39,0.3)', color: '#E0B535' }}
+              className="flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[11.5px] font-devanagari font-semibold"
+              style={{ background: 'rgba(201,162,39,0.18)', border: '1px solid rgba(201,162,39,0.4)', color: '#FDE047' }}
             >
-              <Calendar className="w-3 h-3" />
+              <Calendar className="w-3.5 h-3.5" />
               <span>{todayHindi}</span>
             </div>
           </div>
 
-          {/* Main tagline */}
+          {/* Main tagline - Centered */}
           <h2
-            className="font-devanagari font-bold text-white leading-tight mb-1"
-            style={{ fontSize: 'clamp(18px, 5vw, 24px)' }}
+            className="font-devanagari font-extrabold text-white leading-tight mb-2 text-center"
+            style={{ fontSize: 'clamp(20px, 5.5vw, 26px)' }}
           >
             आमजन में विश्वास,<br />
             <span style={{ color: '#E0B535' }}>जनसुनवाई में सुविधा</span>
           </h2>
-          <p className="font-devanagari text-slate-300 text-xs sm:text-sm leading-relaxed mt-1.5 max-w-sm">
+          <p className="font-devanagari text-slate-300 text-xs sm:text-sm leading-relaxed max-w-md mx-auto text-center">
             जनसुनवाई की जानकारी, अब आसानी से — चित्तौड़गढ़ के नागरिकों हेतु ChittorTech की एक डिजिटल पहल।
           </p>
         </div>
@@ -194,18 +228,16 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin }) => {
               <div className="animate-fade-in-up" style={{ animationDelay: '0.40s' }}>
                 <OfficeInfo />
               </div>
-
-              {/* 7. ChittorTech Initiative Section */}
-              <div className="animate-fade-in-up" style={{ animationDelay: '0.46s' }}>
-                <ChittorTechSection />
-              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Premium Compact Footer with Discreet Admin Link ── */}
-      <Footer onOpenAdmin={onOpenAdmin} />
+      {/* ── Premium Compact Footer with Initiative Page Navigation ── */}
+      <Footer
+        onOpenAdmin={onOpenAdmin}
+        onOpenInitiative={onOpenInitiative}
+      />
     </div>
   );
 };

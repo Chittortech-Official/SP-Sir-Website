@@ -43,7 +43,10 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
 
 /* ─── Typography ─────────────────────────────────── */
-.font-devanagari { font-family: 'Noto Sans Devanagari', sans-serif; }
+.font-devanagari { 
+  font-family: 'Noto Sans Devanagari', sans-serif; 
+  line-height: 1.55;
+}
 .font-sans-num { font-family: 'Inter', sans-serif; }
 
 /* ─── Animations ─────────────────────────────────── */

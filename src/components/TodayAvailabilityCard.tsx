@@ -2,7 +2,6 @@ import React from 'react';
 import {
   CheckCircle2,
   XCircle,
-  AlertCircle,
   Clock,
   Calendar,
   Info,
@@ -57,11 +56,11 @@ export const TodayAvailabilityCard: React.FC<TodayAvailabilityCardProps> = ({
       headerBg: 'linear-gradient(135deg, #1E3A8A 0%, #1D4ED8 50%, #0B1728 100%)',
     },
     confirmation_pending: {
-      icon: <AlertCircle className="w-8 h-8 sm:w-10 sm:h-10" style={{ color: '#D97706' }} />,
-      accentBg: '#FFFBEB',
-      accentBorder: '#FCD34D',
-      accentText: '#78350F',
-      headerBg: 'linear-gradient(135deg, #78350F 0%, #B45309 50%, #0B1728 100%)',
+      icon: <Clock4 className="w-8 h-8 sm:w-10 sm:h-10" style={{ color: '#FCD34D' }} />,
+      accentBg: '#F8FAFC',
+      accentBorder: '#E2E8F0',
+      accentText: '#1E293B',
+      headerBg: 'linear-gradient(135deg, #0A192F 0%, #172D4D 55%, #1F3A60 100%)',
     },
   };
 
@@ -69,10 +68,10 @@ export const TodayAvailabilityCard: React.FC<TodayAvailabilityCardProps> = ({
 
   const slotStatusBadge = (slot_status: string) => {
     if (slot_status === 'cancelled')
-      return <span style={{ background: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }} className="text-[10px] font-bold px-2 py-0.5 rounded-full font-devanagari">रद्द</span>;
+      return <span style={{ background: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }} className="text-[10px] font-bold px-2.5 py-0.5 rounded-full font-devanagari whitespace-nowrap">रद्द</span>;
     if (slot_status === 'tentative')
-      return <span style={{ background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }} className="text-[10px] font-bold px-2 py-0.5 rounded-full font-devanagari">प्रस्तावित</span>;
-    return <span style={{ background: '#ECFDF5', color: '#065F46', border: '1px solid #6EE7B7' }} className="text-[10px] font-bold px-2 py-0.5 rounded-full font-devanagari">पुष्ट ✓</span>;
+      return <span style={{ background: '#F1F5F9', color: '#334155', border: '1px solid #CBD5E1' }} className="text-[10px] font-bold px-2.5 py-0.5 rounded-full font-devanagari whitespace-nowrap">निर्धारण बाकी</span>;
+    return <span style={{ background: '#ECFDF5', color: '#065F46', border: '1px solid #6EE7B7' }} className="text-[10px] font-bold px-2.5 py-0.5 rounded-full font-devanagari whitespace-nowrap">पुष्ट ✓</span>;
   };
 
   return (
@@ -172,8 +171,8 @@ export const TodayAvailabilityCard: React.FC<TodayAvailabilityCardProps> = ({
                   key={slot.id || index}
                   className="rounded-xl p-3.5 flex items-center justify-between"
                   style={{
-                    background: slot.slot_status === 'cancelled' ? '#FEF2F2' : slot.slot_status === 'tentative' ? '#FFFBEB' : '#F0FDF4',
-                    border: `1px solid ${slot.slot_status === 'cancelled' ? '#FECACA' : slot.slot_status === 'tentative' ? '#FDE68A' : '#BBF7D0'}`,
+                    background: slot.slot_status === 'cancelled' ? '#FEF2F2' : slot.slot_status === 'tentative' ? '#F8FAFC' : '#F0FDF4',
+                    border: `1px solid ${slot.slot_status === 'cancelled' ? '#FECACA' : slot.slot_status === 'tentative' ? '#E2E8F0' : '#BBF7D0'}`,
                   }}
                 >
                   <div>

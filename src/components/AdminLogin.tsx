@@ -229,7 +229,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess, onBackToPubli
             <div className="mt-6 pt-5 border-t border-slate-100">
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 space-y-2.5 text-xs text-slate-700">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-1.5 font-bold text-slate-900 text-[11px] uppercase tracking-wide">
+                  <div className="flex items-center space-x-2 font-bold text-slate-900 text-[11px] uppercase tracking-wide">
+                    <img src="/chittortech_logo.png" alt="ChittorTech" className="w-4 h-4 object-contain" />
                     <span>NEED HELP? CHITTORTECH SUPPORT</span>
                   </div>
                   <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded">
@@ -292,8 +293,10 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess, onBackToPubli
         <div>
           © {new Date().getFullYear()} Superintendent of Police Office, Chittorgarh • Rajasthan Police
         </div>
-        <div className="text-[11px] text-slate-400">
-          Engineered & Maintained by <span className="font-semibold text-amber-400">ChittorTech</span>
+        <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+          <span>Engineered & Maintained by</span>
+          <img src="/chittortech_logo.png" alt="ChittorTech" className="w-3.5 h-3.5 object-contain inline" />
+          <span className="font-semibold text-amber-400">ChittorTech</span>
         </div>
       </div>
     </div>
