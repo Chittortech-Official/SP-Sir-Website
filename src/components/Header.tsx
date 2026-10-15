@@ -8,11 +8,17 @@ export const Header: React.FC = () => {
         boxShadow: '0 2px 12px rgba(0, 0, 0, 0.05)',
       }}
     >
-      <div className="page-container py-2.5 sm:py-3 flex flex-col items-center justify-center text-center">
-        {/* Approved Official Office Logo - Centered */}
+      <div className="page-container pt-3 pb-2.5 sm:pt-4 sm:pb-3 flex flex-col items-center justify-center text-center">
+        {/* Approved Official Office Logo - Compact, Strictly Sized, with Top Margin */}
         <div
-          className="w-12 h-12 sm:w-14 sm:h-14 rounded-full overflow-hidden flex items-center justify-center relative mb-1.5 flex-shrink-0"
+          className="rounded-full overflow-hidden flex items-center justify-center relative mt-1.5 mb-2 flex-shrink-0"
           style={{
+            width: '46px',
+            height: '46px',
+            minWidth: '46px',
+            minHeight: '46px',
+            maxWidth: '46px',
+            maxHeight: '46px',
             border: '2px solid #C9A227',
             background: '#07111E',
             boxShadow: '0 2px 8px rgba(201, 162, 39, 0.3)',
@@ -21,7 +27,8 @@ export const Header: React.FC = () => {
           <img
             src="/rajasthan-police-logo.webp"
             alt="राजस्थान पुलिस प्रतीक चिह्न"
-            className="w-full h-full object-cover object-center scale-[1.18]"
+            className="w-full h-full object-cover object-center scale-[1.15]"
+            style={{ width: '100%', height: '100%' }}
           />
         </div>
 

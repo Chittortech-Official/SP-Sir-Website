@@ -15,22 +15,29 @@ export const Footer: React.FC<FooterProps> = ({ onOpenInitiative }) => {
         boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.04)',
       }}
     >
-      <div className="page-container py-6 sm:py-7">
-        {/* Center Branding - Clean White Background Style */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 text-center sm:text-left mb-3">
+      <div className="page-container pt-6 pb-12 sm:pt-8 sm:pb-14">
+        {/* Center Branding - Clean White Background Style with good spacing */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 text-center sm:text-left mb-4 mt-1">
           {/* Official Police Emblem */}
           <div
-            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center relative"
+            className="rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center relative"
             style={{
+              width: '46px',
+              height: '46px',
+              minWidth: '46px',
+              minHeight: '46px',
+              maxWidth: '46px',
+              maxHeight: '46px',
               border: '2px solid #C9A227',
               background: '#07111E',
-              boxShadow: '0 2px 10px rgba(201, 162, 39, 0.25)',
+              boxShadow: '0 2px 8px rgba(201, 162, 39, 0.25)',
             }}
           >
             <img
               src="/rajasthan-police-logo.webp"
               alt="राजस्थान पुलिस प्रतीक चिह्न"
-              className="w-full h-full object-cover object-center scale-[1.18]"
+              className="w-full h-full object-cover object-center scale-[1.15]"
+              style={{ width: '100%', height: '100%' }}
             />
           </div>
 

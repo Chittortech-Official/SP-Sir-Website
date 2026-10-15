@@ -126,8 +126,8 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin, onOpenI
       <div
         style={{
           background: 'linear-gradient(160deg, #0B1728 0%, #1D3557 60%, #2A4A7F 100%)',
-          paddingTop: '18px',
-          paddingBottom: '26px',
+          paddingTop: '20px',
+          paddingBottom: '22px',
         }}
       >
         <div className="page-container text-center flex flex-col items-center">
@@ -156,9 +156,9 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({ onOpenAdmin, onOpenI
         </div>
       </div>
 
-      {/* ── Availability & Public Information Content ── */}
-      <div className="flex-1" style={{ marginTop: '-14px' }}>
-        <div className="page-container pb-10">
+      {/* ── Availability & Public Information Content (Placed cleanly BELOW blue hero) ── */}
+      <div className="flex-1 pt-4 sm:pt-6">
+        <div className="page-container pb-12">
 
           {/* Connection status notice */}
           {dataError && (
