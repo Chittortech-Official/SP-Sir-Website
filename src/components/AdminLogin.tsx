@@ -71,15 +71,16 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess, onBackToPubli
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 text-slate-900 flex flex-col justify-between font-sans relative">
-      {/* Top Header Bar with Back Button & Status */}
+      {/* Top Header Bar with Official Admin Branding & Status */}
       <div className="bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-8 py-3.5 flex items-center justify-between text-xs sticky top-0 z-20 shadow-xs">
-        <button
-          onClick={onBackToPublic}
-          className="flex items-center gap-2 text-slate-700 hover:text-slate-950 font-semibold transition-colors group cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4 text-amber-600 group-hover:-translate-x-1 transition-transform" />
-          <span>Back to Public Availability Portal</span>
-        </button>
+        <div className="flex items-center space-x-2 font-bold text-slate-800">
+          <img 
+            src="/rajasthan-police-logo.webp" 
+            alt="Police" 
+            className="w-5 h-5 rounded-full object-contain" 
+          />
+          <span className="font-semibold text-xs text-slate-700">Official Admin Portal</span>
+        </div>
 
         <div className="flex items-center space-x-2 bg-emerald-50 border border-emerald-200/90 px-3 py-1 rounded-full text-emerald-800 text-[11px] font-semibold">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>

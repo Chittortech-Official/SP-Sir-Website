@@ -15,6 +15,7 @@ import {
   Globe2,
   ArrowUp,
   Send,
+  ChevronDown,
 } from 'lucide-react';
 import { POLICE_DIRECTORY_DATA, POLICE_CIRCLES } from '../data/policeDirectory';
 import { DataService } from '../lib/supabase';
@@ -39,6 +40,7 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isAtFooter, setIsAtFooter] = useState(false);
+  const [visibleCount, setVisibleCount] = useState<number>(10);
   const [contactsList, setContactsList] = useState<PoliceDirectoryRecord[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -104,6 +106,7 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
     setSearchQuery('');
     setSelectedCircle('सभी वृत');
     setSelectedCategory('all');
+    setVisibleCount(10);
   };
 
   const sourceData = useMemo(() => {
@@ -184,6 +187,13 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
     selectedCircle !== 'सभी वृत' ||
     selectedCategory !== 'all';
 
+  const displayedContacts = useMemo(() => {
+    if (isAnyFilterActive) {
+      return filteredContacts;
+    }
+    return filteredContacts.slice(0, visibleCount);
+  }, [filteredContacts, isAnyFilterActive, visibleCount]);
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       <Header />
@@ -191,23 +201,18 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
       <main className="flex-1 w-full max-w-2xl mx-auto px-3.5 sm:px-4 py-3 sm:py-4 space-y-3.5">
         {/* Compact, Crisp Page Banner */}
         <div className="bg-gradient-to-br from-[#0B1728] via-[#10223D] to-[#1B365D] text-white rounded-2xl p-4 sm:p-5 shadow-md border border-blue-900/40 relative overflow-hidden">
-          <div className="flex items-center justify-between gap-3 mb-2.5">
-            <div className="flex items-center gap-2.5">
-              <span className="p-2 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30 shrink-0">
-                <Building2 className="w-5 h-5" />
-              </span>
-              <div>
-                <h1 className="text-lg sm:text-xl font-bold font-devanagari text-white leading-tight">
-                  थाने, अधिकारी एवं संपर्क निर्देशिका
-                </h1>
-                <p className="text-[11px] sm:text-xs text-amber-300/90 font-devanagari font-medium mt-0.5">
-                  चित्तौड़गढ़ जिला पुलिस — कुल 92 आधिकारिक संपर्क
-                </p>
-              </div>
-            </div>
-            <span className="shrink-0 px-2.5 py-1 bg-white/10 backdrop-blur-xs rounded-full border border-white/15 text-[11px] font-bold font-devanagari text-white">
-              {POLICE_DIRECTORY_DATA.length} संपर्क
+          <div className="flex items-center gap-2.5 mb-2.5">
+            <span className="p-2 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30 shrink-0">
+              <Building2 className="w-5 h-5" />
             </span>
+            <div>
+              <h1 className="text-lg sm:text-xl font-bold font-devanagari text-white leading-tight">
+                थाने, अधिकारी एवं संपर्क निर्देशिका
+              </h1>
+              <p className="text-[11px] sm:text-xs text-amber-300/90 font-devanagari font-medium mt-0.5">
+                चित्तौड़गढ़ जिला पुलिस — आधिकारिक संपर्क निर्देशिका
+              </p>
+            </div>
           </div>
 
           <p className="text-[11px] sm:text-xs text-slate-300 font-devanagari leading-relaxed">
@@ -319,13 +324,10 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
         {/* Results Counter & Reset Action */}
         <div className="flex items-center justify-between text-xs text-slate-500 font-devanagari px-1">
           <span>
-            {filteredContacts.length === POLICE_DIRECTORY_DATA.length ? (
-              <>सभी <strong>{filteredContacts.length}</strong> संपर्क उपलब्ध</>
+            {isAnyFilterActive ? (
+              <>खोज परिणाम: <strong className="text-blue-900 font-bold">{filteredContacts.length}</strong> संपर्क मिले</>
             ) : (
-              <>
-                कुल <strong>{POLICE_DIRECTORY_DATA.length}</strong> में से{' '}
-                <strong className="text-blue-900 font-bold">{filteredContacts.length}</strong> संपर्क मिले
-              </>
+              <>आधिकारिक संपर्क सूची</>
             )}
           </span>
           {isAnyFilterActive && (
@@ -359,7 +361,7 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
               </button>
             </div>
           ) : (
-            filteredContacts.map((contact) => {
+            displayedContacts.map((contact) => {
               const cleanMobile = contact.mobile?.replace(/[^0-9]/g, '');
               const officePh = contact.office_phone || (contact as any).officePhone;
               const std = contact.std_code || (contact as any).stdCode;
@@ -613,6 +615,19 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
             })
           )}
         </div>
+
+        {/* Show More Button (Loads contacts in batches of 10 for clean page browsing) */}
+        {!isAnyFilterActive && visibleCount < filteredContacts.length && (
+          <div className="pt-1 pb-1 text-center">
+            <button
+              onClick={() => setVisibleCount((prev) => prev + 10)}
+              className="inline-flex items-center justify-center gap-2 w-full py-3 bg-white hover:bg-slate-50 text-blue-900 font-devanagari font-bold text-xs sm:text-sm rounded-xl border border-slate-300 shadow-xs hover:shadow-sm transition active:scale-[0.99] cursor-pointer"
+            >
+              <span>और संपर्क देखें (Show More)</span>
+              <ChevronDown className="w-4 h-4 text-blue-800" />
+            </button>
+          </div>
+        )}
 
         {/* Note / Disclaimer Card */}
         <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-4 text-xs font-devanagari text-amber-900 flex items-start gap-3">
