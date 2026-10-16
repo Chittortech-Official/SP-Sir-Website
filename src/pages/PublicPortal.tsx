@@ -149,7 +149,7 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({
             <span style={{ color: '#E0B535' }}>जनसुनवाई में सुविधा</span>
           </h2>
           <p className="font-devanagari text-slate-300 text-xs sm:text-sm leading-relaxed max-w-md mx-auto text-center">
-            जनसुनवाई की जानकारी, अब आसानी से — चित्तौड़गढ़ के नागरिकों हेतु ChittorTech की एक डिजिटल पहल।
+            जनसुनवाई की जानकारी, अब आसानी से — चित्तौड़गढ़ के नागरिकों के लिए।
           </p>
         </div>
       </div>

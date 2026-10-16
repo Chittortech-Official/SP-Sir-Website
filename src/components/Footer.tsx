@@ -60,29 +60,8 @@ export const Footer: React.FC<FooterProps> = ({ onOpenInitiative }) => {
           }} 
         />
 
-        {/* About This Initiative Button */}
-        {onOpenInitiative && (
-          <div className="flex justify-center mb-3">
-            <button
-              type="button"
-              onClick={onOpenInitiative}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 hover:bg-amber-50/70 border border-amber-300 hover:border-amber-400 text-slate-800 hover:text-amber-950 font-bold text-xs sm:text-[12.5px] font-devanagari shadow-xs transition-all active:scale-95 group"
-            >
-              <img
-                src="/chittortech_logo.png"
-                alt="ChittorTech"
-                className="w-4 h-4 object-contain"
-              />
-              <span>About This Initiative (इस डिजिटल पहल के बारे में)</span>
-              <span className="text-[10px] bg-amber-500 text-white font-sans px-1.5 py-0.5 rounded group-hover:bg-amber-600 transition-colors">
-                ChittorTech
-              </span>
-            </button>
-          </div>
-        )}
-
-        {/* Attribution & Copyright in Dark/Golden Tones (Zero Login Links) */}
-        <div className="text-center space-y-1 flex flex-col items-center">
+        {/* Attribution & Copyright in Dark/Golden Tones */}
+        <div className="text-center space-y-1.5 flex flex-col items-center">
           <div className="inline-flex items-center gap-2">
             <img
               src="/chittortech_logo.png"
@@ -96,6 +75,19 @@ export const Footer: React.FC<FooterProps> = ({ onOpenInitiative }) => {
           <p className="text-[11px] text-slate-600 font-sans font-medium">
             An Initiative by ChittorTech — For the Citizens of Chittorgarh.
           </p>
+
+          {/* Elegant and attractive initiative button */}
+          {onOpenInitiative && (
+            <button
+              type="button"
+              onClick={onOpenInitiative}
+              className="inline-flex items-center gap-1.5 px-3 py-1 my-0.5 rounded-full bg-slate-100 hover:bg-amber-50 border border-slate-300 hover:border-amber-400 text-slate-800 hover:text-amber-900 font-bold text-xs font-devanagari transition-all active:scale-95 shadow-[0_1px_2px_rgba(0,0,0,0.04)] cursor-pointer"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <span>पहल परिचय (About Initiative)</span>
+            </button>
+          )}
+
           <p className="text-[10px] text-slate-400 font-sans pt-0.5">
             © {year} Office of the Superintendent of Police, Chittorgarh (Rajasthan). All Rights Reserved.
           </p>

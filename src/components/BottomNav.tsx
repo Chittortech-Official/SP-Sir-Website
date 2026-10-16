@@ -1,5 +1,4 @@
-import React from 'react';
-import { Home, PhoneCall, Sparkles } from 'lucide-react';
+import { Home, PhoneCall } from 'lucide-react';
 
 export type PublicTab = 'jansunwai' | 'directory' | 'initiative';
 
@@ -21,12 +20,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange })
       label: 'थाने व संपर्क',
       sublabel: 'Directory',
       icon: PhoneCall,
-    },
-    {
-      id: 'initiative' as PublicTab,
-      label: 'पहल परिचय',
-      sublabel: 'Initiative',
-      icon: Sparkles,
     },
   ];
 

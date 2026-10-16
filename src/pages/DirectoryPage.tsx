@@ -31,6 +31,7 @@ type CategoryFilter = 'all' | 'senior' | 'circle' | 'station' | 'branch' | 'outp
 
 export const DirectoryPage: React.FC<DirectoryPageProps> = ({
   onOpenAdmin,
+  onOpenInitiative,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCircle, setSelectedCircle] = useState<string>('सभी वृत');
@@ -446,24 +447,26 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0">
                             <button
                               onClick={() => copyToClipboard(contact.mobile || '', `mob-${contact.id}`)}
-                              className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md transition cursor-pointer"
-                              title="कॉपी करें"
-                              aria-label="मोबाइल कॉपी करें"
+                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 border border-slate-200/80 transition-all active:scale-95 cursor-pointer shadow-2xs"
+                              title="मोबाइल नंबर कॉपी करें"
+                              aria-label="मोबाइल नंबर कॉपी करें"
                             >
                               {copiedId === `mob-${contact.id}` ? (
-                                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                <Check className="w-4 h-4 text-emerald-600" />
                               ) : (
-                                <Copy className="w-3.5 h-3.5" />
+                                <Copy className="w-4 h-4" />
                               )}
                             </button>
                             <a
                               href={`tel:${cleanMobile}`}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs flex items-center gap-1 shadow-xs transition active:scale-95"
+                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white transition-all active:scale-95 shadow-xs cursor-pointer"
+                              title="कॉल करें"
+                              aria-label="कॉल करें"
                             >
-                              <PhoneCall className="w-3 h-3" /> कॉल
+                              <PhoneCall className="w-4 h-4" />
                             </a>
                           </div>
                         </div>
@@ -485,7 +488,7 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0">
                             <button
                               onClick={() =>
                                 copyToClipboard(
@@ -493,22 +496,24 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
                                   `off-${contact.id}`
                                 )
                               }
-                              className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md transition cursor-pointer"
+                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 border border-slate-200/80 transition-all active:scale-95 cursor-pointer shadow-2xs"
                               title="कार्यालय फोन कॉपी करें"
                               aria-label="कार्यालय फोन कॉपी करें"
                             >
                               {copiedId === `off-${contact.id}` ? (
-                                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                <Check className="w-4 h-4 text-emerald-600" />
                               ) : (
-                                <Copy className="w-3.5 h-3.5" />
+                                <Copy className="w-4 h-4" />
                               )}
                             </button>
                             {landlineDial && (
                               <a
                                 href={`tel:${landlineDial}`}
-                                className="px-2.5 py-1 bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-bold text-xs flex items-center gap-1 shadow-xs transition active:scale-95"
+                                className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-700 hover:bg-blue-800 text-white transition-all active:scale-95 shadow-xs cursor-pointer"
+                                title="डायल करें"
+                                aria-label="कार्यालय फोन डायल करें"
                               >
-                                <PhoneCall className="w-3 h-3" /> डायल
+                                <PhoneCall className="w-4 h-4" />
                               </a>
                             )}
                           </div>
@@ -530,28 +535,23 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
                               <div className="flex items-center gap-1.5">
                                 <button
                                   onClick={() => copyToClipboard(contact.email || '', `mail-${contact.id}`)}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-slate-600 hover:text-blue-700 bg-white hover:bg-slate-100 rounded-md border border-slate-200 transition shadow-2xs cursor-pointer"
+                                  className="w-7 h-7 rounded-md flex items-center justify-center bg-white hover:bg-slate-100 text-slate-500 hover:text-blue-700 border border-slate-200 transition shadow-2xs cursor-pointer"
                                   title="ईमेल कॉपी करें"
                                   aria-label="ईमेल कॉपी करें"
                                 >
                                   {copiedId === `mail-${contact.id}` ? (
-                                    <>
-                                      <Check className="w-3 h-3 text-emerald-600" />
-                                      <span className="text-emerald-700 font-semibold font-devanagari">कॉपी हुआ</span>
-                                    </>
+                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
                                   ) : (
-                                    <>
-                                      <Copy className="w-3 h-3 text-slate-500" />
-                                      <span className="font-devanagari">कॉपी</span>
-                                    </>
+                                    <Copy className="w-3.5 h-3.5" />
                                   )}
                                 </button>
                                 <a
                                   href={`mailto:${contact.email}`}
-                                  className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-[10px] font-bold font-devanagari shadow-2xs transition active:scale-95"
+                                  className="w-7 h-7 rounded-md flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition active:scale-95 cursor-pointer"
+                                  title="ईमेल भेजें"
+                                  aria-label="ईमेल भेजें"
                                 >
-                                  <Send className="w-3 h-3" />
-                                  <span>मेल भेजें</span>
+                                  <Send className="w-3.5 h-3.5" />
                                 </a>
                               </div>
                             </div>
@@ -572,28 +572,23 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
                               <div className="flex items-center gap-1.5">
                                 <button
                                   onClick={() => copyToClipboard(altMail || '', `altmail-${contact.id}`)}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-slate-600 hover:text-indigo-700 bg-white hover:bg-slate-100 rounded-md border border-slate-200 transition shadow-2xs cursor-pointer"
+                                  className="w-7 h-7 rounded-md flex items-center justify-center bg-white hover:bg-slate-100 text-slate-500 hover:text-indigo-700 border border-slate-200 transition shadow-2xs cursor-pointer"
                                   title="राजपुलिस ईमेल कॉपी करें"
                                   aria-label="राजपुलिस ईमेल कॉपी करें"
                                 >
                                   {copiedId === `altmail-${contact.id}` ? (
-                                    <>
-                                      <Check className="w-3 h-3 text-emerald-600" />
-                                      <span className="text-emerald-700 font-semibold font-devanagari">कॉपी हुआ</span>
-                                    </>
+                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
                                   ) : (
-                                    <>
-                                      <Copy className="w-3 h-3 text-slate-500" />
-                                      <span className="font-devanagari">कॉपी</span>
-                                    </>
+                                    <Copy className="w-3.5 h-3.5" />
                                   )}
                                 </button>
                                 <a
                                   href={`mailto:${altMail}`}
-                                  className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-[10px] font-bold font-devanagari shadow-2xs transition active:scale-95"
+                                  className="w-7 h-7 rounded-md flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs transition active:scale-95 cursor-pointer"
+                                  title="ईमेल भेजें"
+                                  aria-label="ईमेल भेजें"
                                 >
-                                  <Send className="w-3 h-3" />
-                                  <span>मेल भेजें</span>
+                                  <Send className="w-3.5 h-3.5" />
                                 </a>
                               </div>
                             </div>
@@ -635,7 +630,7 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
         </button>
       )}
 
-      <Footer onOpenAdmin={onOpenAdmin} />
+      <Footer onOpenAdmin={onOpenAdmin} onOpenInitiative={onOpenInitiative} />
     </div>
   );
 };
