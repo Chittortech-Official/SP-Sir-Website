@@ -38,6 +38,7 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [isAtFooter, setIsAtFooter] = useState(false);
   const [contactsList, setContactsList] = useState<PoliceDirectoryRecord[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,6 +61,7 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
     const handleSync = () => {
       fetchContacts();
     };
+
     window.addEventListener('sp_availability_changed', handleSync);
     window.addEventListener('storage', handleSync);
 
@@ -70,10 +72,16 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
     };
   }, []);
 
-  // Monitor scroll for scroll-to-top button
+  // Monitor scroll for scroll-to-top button and footer proximity
   useEffect(() => {
     const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 250);
+      const scrollY = window.scrollY;
+      setShowScrollTop(scrollY > 250);
+
+      const scrollBottom = window.innerHeight + scrollY;
+      const documentHeight = document.documentElement.scrollHeight;
+      // When within footer zone (~340px from bottom), shift button to right corner
+      setIsAtFooter(documentHeight - scrollBottom < 340);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
@@ -618,11 +626,15 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
         </div>
       </main>
 
-      {/* Centered, Sleek Floating Scroll-to-Top Button */}
+      {/* Sleek Floating Scroll-to-Top Button (Centered on page, shifts to Right corner at footer) */}
       {showScrollTop && (
         <button
           onClick={scrollToTopAndFocusSearch}
-          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 hover:bg-slate-950 text-white px-4 py-2 rounded-full shadow-xl border border-slate-700/60 flex items-center gap-1.5 text-xs font-bold font-devanagari transition-all active:scale-95 backdrop-blur-md cursor-pointer"
+          className={`fixed bottom-20 z-40 bg-slate-900/95 hover:bg-slate-950 text-white px-3.5 py-2 rounded-full shadow-xl border border-slate-700/60 flex items-center gap-1.5 text-xs font-bold font-devanagari transition-all duration-300 active:scale-95 backdrop-blur-md cursor-pointer ${
+            isAtFooter
+              ? 'right-4 sm:right-6 left-auto translate-x-0'
+              : 'left-1/2 -translate-x-1/2 right-auto'
+          }`}
           aria-label="पेज के ऊपर जाएं"
         >
           <ArrowUp className="w-3.5 h-3.5 text-amber-400" />
