@@ -5,7 +5,6 @@ import {
   Mail, 
   Eye, 
   EyeOff, 
-  ArrowLeft, 
   Database, 
   CalendarCheck, 
   ShieldCheck, 
@@ -19,10 +18,10 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 interface AdminLoginProps {
   onSuccess: () => void;
-  onBackToPublic: () => void;
+  onBackToPublic?: () => void;
 }
 
-export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess, onBackToPublic }) => {
+export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
