@@ -1,6 +1,6 @@
-import { Home, PhoneCall } from 'lucide-react';
+import { Home, PhoneCall, ShieldAlert } from 'lucide-react';
 
-export type PublicTab = 'jansunwai' | 'directory' | 'initiative';
+export type PublicTab = 'jansunwai' | 'safety' | 'directory' | 'initiative';
 
 interface BottomNavProps {
   currentTab: PublicTab;
@@ -14,6 +14,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange })
       label: 'जनसुनवाई',
       sublabel: 'Home',
       icon: Home,
+    },
+    {
+      id: 'safety' as PublicTab,
+      label: 'सुरक्षा केंद्र',
+      sublabel: 'Safety',
+      icon: ShieldAlert,
     },
     {
       id: 'directory' as PublicTab,

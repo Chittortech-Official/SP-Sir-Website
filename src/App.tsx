@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { PublicPortal } from './pages/PublicPortal';
 import { DirectoryPage } from './pages/DirectoryPage';
 import { InitiativePage } from './pages/InitiativePage';
+import { SafetyHubPage } from './pages/SafetyHubPage';
 import { AdminLogin } from './components/AdminLogin';
 import { AdminDashboard } from './components/AdminDashboard';
 import { BottomNav } from './components/BottomNav';
@@ -25,6 +26,9 @@ export function App() {
       if (hash === '#admin' || path === '/admin') {
         targetRoute = 'admin';
         cleanPath = '/admin';
+      } else if (hash === '#safety' || path === '/safety' || hash === '#cyber' || path === '/cyber') {
+        targetRoute = 'safety';
+        cleanPath = '/safety';
       } else if (hash === '#directory' || path === '/directory' || hash === '#contact' || path === '/contact') {
         targetRoute = 'directory';
         cleanPath = '/directory';
@@ -64,6 +68,7 @@ export function App() {
     setCurrentRoute(route);
     let targetPath = '/';
     if (route === 'admin') targetPath = '/admin';
+    else if (route === 'safety') targetPath = '/safety';
     else if (route === 'directory') targetPath = '/directory';
     else if (route === 'initiative') targetPath = '/initiative';
 
@@ -107,7 +112,7 @@ export function App() {
 
   // 2. Citizen Views with Persistent Fixed Bottom Navigation
   const publicTab: PublicTab =
-    currentRoute === 'directory' || currentRoute === 'initiative'
+    currentRoute === 'safety' || currentRoute === 'directory' || currentRoute === 'initiative'
       ? currentRoute
       : 'jansunwai';
 
@@ -120,6 +125,13 @@ export function App() {
             onOpenAdmin={() => navigateTo('admin')}
             onOpenInitiative={() => navigateTo('initiative')}
             onOpenDirectory={() => navigateTo('directory')}
+          />
+        )}
+
+        {publicTab === 'safety' && (
+          <SafetyHubPage
+            onOpenAdmin={() => navigateTo('admin')}
+            onOpenInitiative={() => navigateTo('initiative')}
           />
         )}
 
