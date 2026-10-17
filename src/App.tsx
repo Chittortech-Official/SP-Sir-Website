@@ -6,6 +6,7 @@ import { SafetyHubPage } from './pages/SafetyHubPage';
 import { AdminLogin } from './components/AdminLogin';
 import { AdminDashboard } from './components/AdminDashboard';
 import { BottomNav } from './components/BottomNav';
+import { SplashScreen } from './components/SplashScreen';
 import type { PublicTab } from './components/BottomNav';
 
 type AppRoute = 'admin' | PublicTab;
@@ -13,6 +14,7 @@ type AppRoute = 'admin' | PublicTab;
 export function App() {
   const [currentRoute, setCurrentRoute] = useState<AppRoute>('jansunwai');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     // Check initial route from hash and path, and cleanly remove any `#`
@@ -118,6 +120,14 @@ export function App() {
 
   return (
     <div className="relative min-h-screen bg-slate-50 flex flex-col">
+      {/* ── Royal Rajasthan Police Splash Screen on Initial Visit/Refresh ── */}
+      {showSplash && (
+        <SplashScreen
+          minDisplayTimeMs={1500}
+          onFinish={() => setShowSplash(false)}
+        />
+      )}
+
       {/* Active Tab View */}
       <div className="flex-1 pb-16">
         {publicTab === 'jansunwai' && (
