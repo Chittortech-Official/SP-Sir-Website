@@ -117,6 +117,7 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({
 
     document.addEventListener('visibilitychange', handleTabActive);
     window.addEventListener('focus', handleTabActive);
+    window.addEventListener('pageshow', handleTabActive);
 
     // Clean up listeners
     return () => {
@@ -127,6 +128,7 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({
       clearInterval(pollInterval);
       document.removeEventListener('visibilitychange', handleTabActive);
       window.removeEventListener('focus', handleTabActive);
+      window.removeEventListener('pageshow', handleTabActive);
     };
   }, []);
 

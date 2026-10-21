@@ -20,7 +20,14 @@ export const isSupabaseConfigured = Boolean(
 );
 
 export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        fetch: (url, options = {}) => fetch(url, { ...options, cache: 'no-store' }),
+      },
+      realtime: {
+        heartbeatIntervalMs: 15000, // Keep mobile sockets alive through mobile carrier timeouts
+      }
+    })
   : null;
 
 // Helper to check valid UUID
