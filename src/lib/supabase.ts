@@ -166,6 +166,20 @@ export const notifyAvailabilityUpdated = () => {
           try { bc.close(); } catch {}
         }, 1500);
       }
+
+      // 4. Supabase Realtime broadcast to ALL connected citizens on any device/phone (sub-100ms)
+      if (supabase) {
+        const bcChannel = supabase.channel('sp-public-channel');
+        bcChannel.subscribe((status: string) => {
+          if (status === 'SUBSCRIBED') {
+            bcChannel.send({
+              type: 'broadcast',
+              event: 'availability_updated',
+              payload: { time: Date.now() }
+            });
+          }
+        });
+      }
     }
   } catch (e) {
     console.warn('Broadcast error', e);

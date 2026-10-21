@@ -75,11 +75,20 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({
       };
     }
 
-    // Supabase Realtime subscription: ONLY for real-time dynamic tables (availability, slots, notices)
+    // Supabase Realtime subscription: broadcast (instant 100ms) + postgres_changes
     let channel: any = null;
     if (supabase) {
+      const channelName = 'sp-public-channel';
+      const existing = supabase.getChannels().find(c => c.topic === `realtime:${channelName}`);
+      if (existing) {
+        supabase.removeChannel(existing);
+      }
+
       channel = supabase
-        .channel('public-portal-live')
+        .channel(channelName)
+        .on('broadcast', { event: 'availability_updated' }, () => {
+          loadData(false);
+        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'availability' }, () => {
           loadData(false);
         })
@@ -92,12 +101,19 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({
         .subscribe();
     }
 
-    // Light fallback: Refresh only when citizen returns/focuses the tab
+    // Light fallback: Refresh when citizen returns/focuses the tab
     const handleTabActive = () => {
       if (document.visibilityState === 'visible') {
         loadData(false);
       }
     };
+
+    // Safety fallback: Poll every 60s ONLY when the tab is actively in view (ultra low bandwidth)
+    const pollInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadData(false);
+      }
+    }, 60000);
 
     document.addEventListener('visibilitychange', handleTabActive);
     window.addEventListener('focus', handleTabActive);
@@ -108,6 +124,7 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({
       window.removeEventListener('storage', handleInstantSync);
       if (bc) bc.close();
       if (channel && supabase) supabase.removeChannel(channel);
+      clearInterval(pollInterval);
       document.removeEventListener('visibilitychange', handleTabActive);
       window.removeEventListener('focus', handleTabActive);
     };

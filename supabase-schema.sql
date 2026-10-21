@@ -81,6 +81,12 @@ ALTER TABLE availability_slots DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public_notices DISABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_audit_logs DISABLE ROW LEVEL SECURITY;
 
+-- ── 6.1 Enable Supabase Realtime (Instant Live Updates without Refresh) ────────
+-- Run this so database updates broadcast to all mobile/web users within 1-2 seconds
+ALTER PUBLICATION supabase_realtime ADD TABLE availability;
+ALTER PUBLICATION supabase_realtime ADD TABLE availability_slots;
+ALTER PUBLICATION supabase_realtime ADD TABLE public_notices;
+
 -- ── 7. Indexes for performance ───────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_availability_date ON availability(schedule_date);
 CREATE INDEX IF NOT EXISTS idx_availability_published ON availability(published);
