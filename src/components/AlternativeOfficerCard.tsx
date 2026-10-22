@@ -10,7 +10,7 @@ interface AlternativeOfficerCardProps {
 
 export const AlternativeOfficerCard: React.FC<AlternativeOfficerCardProps> = ({
   officer,
-  timing,
+  timing: _timing,
   isSpUnavailable = false,
 }) => {
   // Don't show anything if SP is available and no alternative is designated
@@ -38,11 +38,11 @@ export const AlternativeOfficerCard: React.FC<AlternativeOfficerCardProps> = ({
           </p>
           <div className="mt-3 flex justify-center">
             <a
-              href="tel:01472240055"
+              href="tel:01472240088"
               className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white border border-amber-300 text-amber-900 font-semibold text-xs font-devanagari shadow-sm"
             >
               <PhoneCall className="w-3.5 h-3.5 text-amber-700" />
-              <span>कंट्रोल रूम: 01472-240055</span>
+              <span>कंट्रोल रूम: 01472-240088</span>
             </a>
           </div>
         </div>
@@ -101,15 +101,13 @@ export const AlternativeOfficerCard: React.FC<AlternativeOfficerCardProps> = ({
 
         {/* Centered Timing and Phone details */}
         <div className="flex flex-wrap items-center justify-center gap-2.5 mt-3 pt-3 border-t border-slate-100 w-full text-center">
-          {timing && (
-            <div
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-devanagari leading-normal whitespace-nowrap shadow-sm"
-              style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', color: '#0C4A6E' }}
-            >
-              <Clock className="w-3.5 h-3.5 flex-shrink-0 text-blue-600" />
-              <span>समय: <strong className="font-semibold text-slate-900">{timing}</strong></span>
-            </div>
-          )}
+          <div
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-devanagari leading-normal whitespace-nowrap shadow-sm"
+            style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', color: '#0C4A6E' }}
+          >
+            <Clock className="w-3.5 h-3.5 flex-shrink-0 text-blue-600" />
+            <span>समय: <strong className="font-semibold text-slate-900">कार्यालय समय</strong></span>
+          </div>
           {officer.phone && (
             <a
               href={`tel:${officer.phone}`}

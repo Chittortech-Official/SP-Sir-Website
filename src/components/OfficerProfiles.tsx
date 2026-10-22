@@ -101,24 +101,33 @@ export const OfficerProfiles: React.FC<OfficerProfilesProps> = ({ officers }) =>
 
                 {/* Centered Contact Button */}
                 <div className="mt-3 pt-2.5 border-t border-slate-100 w-full flex justify-center">
-                  {officer.phone ? (
-                    <a
-                      href={`tel:${officer.phone}`}
-                      className="inline-flex items-center gap-2 text-xs font-semibold font-sans-num transition-all hover:bg-emerald-100"
-                      style={{
-                        color: '#065F46',
-                        background: '#F0FDF4',
-                        border: '1px solid #BBF7D0',
-                        padding: '5px 14px',
-                        borderRadius: '9999px',
-                      }}
-                    >
-                      <Phone className="w-3 h-3 text-emerald-600" />
-                      <span>कार्यालय संपर्क: <strong>{officer.phone}</strong></span>
-                    </a>
-                  ) : (
-                    <span className="text-[11px] text-slate-400 font-devanagari">कार्यालय संपर्क उपलब्ध नहीं</span>
-                  )}
+                  {(() => {
+                    const phoneToDisplay =
+                      officer.id === 'eaddd30b-4a41-46e6-a9ad-4fb5e61f571d' ||
+                      officer.name.includes('धर्मेन्द्र') ||
+                      (officer.designation.includes('SP') && !officer.designation.includes('अतिरिक्त') && !officer.designation.includes('Addl'))
+                        ? '01472-240006'
+                        : officer.phone;
+
+                    return phoneToDisplay ? (
+                      <a
+                        href={`tel:${phoneToDisplay.split('/')[0].trim()}`}
+                        className="inline-flex items-center gap-2 text-xs font-semibold font-sans-num transition-all hover:bg-emerald-100"
+                        style={{
+                          color: '#065F46',
+                          background: '#F0FDF4',
+                          border: '1px solid #BBF7D0',
+                          padding: '5px 14px',
+                          borderRadius: '9999px',
+                        }}
+                      >
+                        <Phone className="w-3 h-3 text-emerald-600" />
+                        <span>कार्यालय संपर्क: <strong>{phoneToDisplay}</strong></span>
+                      </a>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 font-devanagari">कार्यालय संपर्क उपलब्ध नहीं</span>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

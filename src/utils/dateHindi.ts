@@ -106,16 +106,16 @@ export function getStatusConfig(status: string) {
     case 'confirmation_pending':
     default:
       return {
-        label: 'समय की पुष्टि बाकी है',
-        shortLabel: 'पुष्टि प्रतीक्षित',
-        subText: 'आज की जनसुनवाई का समय अभी कार्यालय द्वारा अद्यतन (Confirm) किया जा रहा है',
-        badgeBg: 'bg-amber-50 border-amber-500 text-amber-900',
-        cardBorder: 'border-amber-500',
-        headerBg: 'from-amber-600 via-amber-700 to-slate-900',
-        accentColor: 'text-amber-700',
-        dotColor: 'bg-amber-500',
-        iconType: 'alert-circle',
-        ariaStatus: 'Pending Confirmation'
+        label: 'आज जनसुनवाई के लिए उपलब्ध',
+        shortLabel: 'उपलब्ध',
+        subText: 'पुलिस अधीक्षक कार्यालय में जनसुनवाई हेतु उपस्थित हैं',
+        badgeBg: 'bg-emerald-50 border-emerald-500 text-emerald-900',
+        cardBorder: 'border-emerald-500',
+        headerBg: 'from-emerald-700 via-emerald-800 to-slate-900',
+        accentColor: 'text-emerald-700',
+        dotColor: 'bg-emerald-500',
+        iconType: 'check-circle',
+        ariaStatus: 'Available'
       };
   }
 }

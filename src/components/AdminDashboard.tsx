@@ -4,15 +4,10 @@ import {
   Save, 
   LogOut, 
   ExternalLink, 
-  Plus, 
   Trash2, 
-  Bell, 
   Users, 
   Check, 
   AlertCircle,
-  Eye,
-  CheckCircle2,
-  XCircle,
   UserCheck,
   Edit2,
   UserPlus,
@@ -23,14 +18,11 @@ import {
 import { DataService, isSupabaseConfigured, getTodayISODate } from '../lib/supabase';
 import { DirectoryManager } from './DirectoryManager';
 import type { 
-  Availability,
   AvailabilitySlot, 
   AvailabilityStatus, 
   TimingType, 
-  OfficerProfile, 
-  PublicNotice 
+  OfficerProfile 
 } from '../types/database';
-import { getTodayHindiDate } from '../utils/dateHindi';
 import { ActionFeedbackModal } from './ActionFeedbackModal';
 export type ModalType = 'confirm' | 'success' | 'danger' | 'info';
 
@@ -85,36 +77,21 @@ const STATUS_LABELS: Record<AvailabilityStatus, { title: string; subtitle: strin
 };
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onViewPublic }) => {
-  const [activeTab, setActiveTab] = useState<'availability' | 'notices' | 'officers' | 'directory'>('availability');
-  
-  // Current Live State from Database
-  const [liveAvailability, setLiveAvailability] = useState<Availability | null>(null);
+  const [activeTab, setActiveTab] = useState<'availability' | 'officers' | 'directory'>('availability');
 
   // Form State for Availability & Slots
   const [status, setStatus] = useState<AvailabilityStatus>('available');
   const [timingType, setTimingType] = useState<TimingType>('confirmed');
   const [publicMessage, setPublicMessage] = useState('');
   const [alternativeOfficerId, setAlternativeOfficerId] = useState<string>('');
-  const [alternativeTiming, setAlternativeTiming] = useState('दोपहर 12:00 बजे से 01:00 बजे तक');
+  const [alternativeTiming, setAlternativeTiming] = useState('कार्यालय समय');
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
-  
+
   // Unsaved changes tracker
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Officers & Notices
+  // Officers
   const [officers, setOfficers] = useState<OfficerProfile[]>([]);
-  const [notices, setNotices] = useState<PublicNotice[]>([]);
-
-  // Notice Form State (New)
-  const [newNoticeTitle, setNewNoticeTitle] = useState('');
-  const [newNoticeMsg, setNewNoticeMsg] = useState('');
-  const [newNoticePriority, setNewNoticePriority] = useState<'normal' | 'high'>('normal');
-
-  // Notice Edit State
-  const [editingNotice, setEditingNotice] = useState<PublicNotice | null>(null);
-  const [editNoticeTitle, setEditNoticeTitle] = useState('');
-  const [editNoticeMsg, setEditNoticeMsg] = useState('');
-  const [editNoticePriority, setEditNoticePriority] = useState<'normal' | 'high'>('normal');
 
   // Officer Add & Edit State
   const [isAddingOfficer, setIsAddingOfficer] = useState(false);
@@ -154,17 +131,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
     try {
       const { availability: avail, slots: availSlots } = await DataService.getTodayAvailability();
       const allOfficers = await DataService.getOfficers();
-      const allNotices = await DataService.getPublicNotices();
 
-      setLiveAvailability(avail);
       setStatus(avail.status);
       setTimingType(avail.timing_type);
       setPublicMessage(avail.public_message || '');
       setAlternativeOfficerId(avail.alternative_officer_id || '');
-      setAlternativeTiming(avail.alternative_timing || 'दोपहर 12:00 बजे से 01:00 बजे तक');
+      setAlternativeTiming(avail.alternative_timing || 'कार्यालय समय');
       setSlots(availSlots);
       setOfficers(allOfficers);
-      setNotices(allNotices);
       setHasUnsavedChanges(false);
     } catch (e) {
       console.error('Error loading admin data', e);
@@ -180,7 +154,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
       setPublicMessage('आज पुलिस अधीक्षक महोदय कार्यालय में उपस्थित हैं। परिवादी जनसुनवाई कक्ष में उपस्थित होकर अपनी समस्या प्रस्तुत कर सकते हैं।');
       setTimingType('confirmed');
       if (slots.length === 0) {
-        applySlotsPreset('standard');
+        applySlotsPreset();
       }
     } else if (newStatus === 'unavailable') {
       setPublicMessage('आज पुलिस अधीक्षक महोदय शासकीय कार्य / दौरे पर होने के कारण कार्यालय में जनसुनवाई हेतु उपलब्ध नहीं रहेंगे।');
@@ -197,57 +171,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
     }
   };
 
-  // Preset slots for 1-click convenience
-  const applySlotsPreset = (type: 'standard' | 'morning' | 'evening' | 'none') => {
+  // Set default office hours slot
+  const applySlotsPreset = () => {
     setHasUnsavedChanges(true);
-    if (type === 'standard') {
-      setSlots([
-        {
-          id: 'slot-1',
-          availability_id: 'avail-today',
-          start_time: '10:30 AM',
-          end_time: '01:00 PM',
-          slot_status: 'confirmed',
-          slot_label: 'प्रातः कालीन सत्र',
-          display_order: 1
-        },
-        {
-          id: 'slot-2',
-          availability_id: 'avail-today',
-          start_time: '03:30 PM',
-          end_time: '05:30 PM',
-          slot_status: 'confirmed',
-          slot_label: 'सायं कालीन सत्र',
-          display_order: 2
-        }
-      ]);
-    } else if (type === 'morning') {
-      setSlots([
-        {
-          id: 'slot-1',
-          availability_id: 'avail-today',
-          start_time: '10:30 AM',
-          end_time: '01:30 PM',
-          slot_status: 'confirmed',
-          slot_label: 'प्रातः कालीन सत्र',
-          display_order: 1
-        }
-      ]);
-    } else if (type === 'evening') {
-      setSlots([
-        {
-          id: 'slot-1',
-          availability_id: 'avail-today',
-          start_time: '03:30 PM',
-          end_time: '05:30 PM',
-          slot_status: 'confirmed',
-          slot_label: 'सायं कालीन सत्र',
-          display_order: 1
-        }
-      ]);
-    } else if (type === 'none') {
-      setSlots([]);
-    }
+    setSlots([
+      {
+        id: 'slot-1',
+        availability_id: 'avail-today',
+        start_time: 'कार्यालय समय',
+        end_time: '',
+        slot_status: 'confirmed',
+        slot_label: 'जनसुनवाई सत्र',
+        display_order: 1
+      }
+    ]);
   };
 
   // ── ACTION 1: Publish Availability with Confirmation & Success Modal ──
@@ -303,178 +240,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
             onClose: closeModal,
           });
         }
-      }
-    });
-  };
-
-  const handleAddSlot = () => {
-    setHasUnsavedChanges(true);
-    const newSlot: AvailabilitySlot = {
-      id: 'slot-' + Date.now(),
-      availability_id: 'avail-today',
-      start_time: '11:00 AM',
-      end_time: '01:00 PM',
-      slot_status: 'confirmed',
-      slot_label: `सत्र ${slots.length + 1}`,
-      display_order: slots.length + 1
-    };
-    setSlots([...slots, newSlot]);
-  };
-
-  const handleUpdateSlot = (index: number, field: keyof AvailabilitySlot, value: any) => {
-    setHasUnsavedChanges(true);
-    const updated = [...slots];
-    updated[index] = { ...updated[index], [field]: value };
-    setSlots(updated);
-  };
-
-  // ── ACTION 2: Delete Slot with Confirmation Modal ──
-  const triggerDeleteSlotModal = (index: number) => {
-    const targetSlot = slots[index];
-    const slotDesc = targetSlot ? `${targetSlot.slot_label || 'सत्र'} (${targetSlot.start_time} - ${targetSlot.end_time})` : 'यह सत्र';
-
-    setModalState({
-      isOpen: true,
-      type: 'danger',
-      title: 'समय सत्र हटाएं?',
-      message: `क्या आप "${slotDesc}" को आज की जनसुनवाई अनुसूची से हटाना चाहते हैं?`,
-      confirmText: 'हाँ, हटाएं',
-      cancelText: 'रद्द करें',
-      confirmColor: 'rose',
-      onCancel: closeModal,
-      onConfirm: () => {
-        setHasUnsavedChanges(true);
-        setSlots(slots.filter((_, i) => i !== index));
-        setModalState({
-          isOpen: true,
-          type: 'success',
-          title: 'सत्र हटा दिया गया!',
-          message: 'समय सत्र सफलतापूर्वक सूची से हटा दिया गया है।',
-          confirmText: 'OK',
-          onClose: closeModal,
-        });
-      }
-    });
-  };
-
-  // ── ACTION 3: Create Notice with Confirmation & Success Modal ──
-  const handleCreateNoticeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newNoticeTitle.trim() || !newNoticeMsg.trim()) return;
-
-    setModalState({
-      isOpen: true,
-      type: 'confirm',
-      title: 'सार्वजनिक सूचना प्रकाशित करें?',
-      message: `"${newNoticeTitle}" को पोर्टल के नोटिस बोर्ड पर तुरंत प्रकाशित किया जाएगा। क्या आप इसे जारी करना चाहते हैं?`,
-      confirmText: 'हाँ, प्रकाशित करें',
-      cancelText: 'रद्द करें',
-      confirmColor: 'teal',
-      onCancel: closeModal,
-      onConfirm: async () => {
-        setModalState(prev => ({ ...prev, isLoading: true }));
-        await DataService.saveNotice({
-          title: newNoticeTitle,
-          message: newNoticeMsg,
-          published: true,
-          priority: newNoticePriority,
-          publish_at: new Date().toISOString()
-        });
-
-        setNewNoticeTitle('');
-        setNewNoticeMsg('');
-        await loadAllData();
-
-        setModalState({
-          isOpen: true,
-          type: 'success',
-          title: 'Updated!',
-          message: 'सार्वजनिक सूचना पोर्टल पर सफलतापूर्वक जारी कर दी गई है।',
-          confirmText: 'OK',
-          onClose: closeModal,
-        });
-      }
-    });
-  };
-
-  // ── ACTION 3.1: Start & Cancel Notice Editing ──
-  const handleStartEditNotice = (notice: PublicNotice) => {
-    setEditingNotice(notice);
-    setEditNoticeTitle(notice.title);
-    setEditNoticeMsg(notice.message);
-    setEditNoticePriority(notice.priority as any);
-  };
-
-  const handleCancelEditNotice = () => {
-    setEditingNotice(null);
-    setEditNoticeTitle('');
-    setEditNoticeMsg('');
-  };
-
-  // ── ACTION 3.2: Save Edited Notice ──
-  const handleSaveEditNotice = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingNotice || !editNoticeTitle.trim() || !editNoticeMsg.trim()) return;
-
-    setModalState({
-      isOpen: true,
-      type: 'confirm',
-      title: 'सार्वजनिक सूचना संशोधित करें?',
-      message: `क्या आप "${editNoticeTitle}" में किए गए बदलावों को सार्वजनिक पोर्टल पर तुरंत लाइव अपडेट करना चाहते हैं?`,
-      confirmText: 'हाँ, अपडेट करें',
-      cancelText: 'रद्द करें',
-      confirmColor: 'teal',
-      onCancel: closeModal,
-      onConfirm: async () => {
-        setModalState(prev => ({ ...prev, isLoading: true }));
-        await DataService.saveNotice({
-          id: editingNotice.id,
-          title: editNoticeTitle.trim(),
-          message: editNoticeMsg.trim(),
-          published: true,
-          priority: editNoticePriority,
-          publish_at: editingNotice.publish_at || new Date().toISOString()
-        });
-
-        handleCancelEditNotice();
-        await loadAllData();
-
-        setModalState({
-          isOpen: true,
-          type: 'success',
-          title: 'Updated!',
-          message: 'सार्वजनिक सूचना सफलतापूर्वक संशोधित कर दी गई है।',
-          confirmText: 'OK',
-          onClose: closeModal,
-        });
-      }
-    });
-  };
-
-  // ── ACTION 4: Delete Notice with Confirmation Modal ──
-  const triggerDeleteNoticeModal = (id: string, noticeTitle: string) => {
-    setModalState({
-      isOpen: true,
-      type: 'danger',
-      title: 'सूचना हटाएं?',
-      message: `क्या आप "${noticeTitle}" को सार्वजनिक पोर्टल से हटाना चाहते हैं?`,
-      confirmText: 'हाँ, हटाएं',
-      cancelText: 'रद्द करें',
-      confirmColor: 'rose',
-      onCancel: closeModal,
-      onConfirm: async () => {
-        setModalState(prev => ({ ...prev, isLoading: true }));
-        await DataService.deleteNotice(id);
-        await loadAllData();
-
-        setModalState({
-          isOpen: true,
-          type: 'success',
-          title: 'Updated!',
-          message: 'सार्वजनिक सूचना पोर्टल से सफलतापूर्वक हटा दी गई है।',
-          confirmText: 'OK',
-          onClose: closeModal,
-        });
       }
     });
   };
@@ -663,9 +428,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
     });
   };
 
-  const todayHindi = getTodayHindiDate();
-  const selectedAltOfficer = officers.find(o => o.id === alternativeOfficerId);
-
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans pb-16">
       
@@ -765,18 +527,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
             </button>
 
             <button
-              onClick={() => setActiveTab('notices')}
-              className={`py-2.5 px-3 border-b-2 text-xs sm:text-sm font-bold font-devanagari whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'notices'
-                  ? 'border-amber-400 text-amber-300'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Bell className="w-4 h-4" />
-              <span>सार्वजनिक सूचनाएं ({notices.length})</span>
-            </button>
-
-            <button
               onClick={() => setActiveTab('officers')}
               className={`py-2.5 px-3 border-b-2 text-xs sm:text-sm font-bold font-devanagari whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'officers'
@@ -828,64 +578,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11.5px]">
                     <div className="bg-white/90 p-2.5 rounded-xl border border-blue-100 shadow-2xs">
                       <strong className="text-blue-900 block mb-0.5">1. स्थिति चुनें:</strong>
-                      'उपलब्ध हैं', 'उपलब्ध नहीं हैं', या 'समय परिवर्तित' में से उचित बटन दबाएं। संदेश अपने आप सेट हो जाएगा।
+                      'उपलब्ध हैं' या 'उपलब्ध नहीं हैं' में से उचित बटन दबाएं।
                     </div>
                     <div className="bg-white/90 p-2.5 rounded-xl border border-blue-100 shadow-2xs">
-                      <strong className="text-blue-900 block mb-0.5">2. समय / विकल्प:</strong>
-                      यदि समय बदला है तो समय बदलें। यदि सर अनुपलब्ध हैं तो वैकल्पिक अधिकारी (Addl SP / DySP) चुनें।
+                      <strong className="text-blue-900 block mb-0.5">2. वैकल्पिक अधिकारी:</strong>
+                      यदि सर अनुपलब्ध हैं तो वैकल्पिक अधिकारी (Addl SP / DySP) चुनें।
                     </div>
                     <div className="bg-white/90 p-2.5 rounded-xl border border-blue-100 shadow-2xs">
                       <strong className="text-blue-900 block mb-0.5">3. स्थिति लागू करें:</strong>
-                      नीचे <strong>'स्थिति तुरंत लागू करें'</strong> बटन दबाकर 'हाँ' पर क्लिक करें। यह तुरंत लाइव हो जाएगा।
+                      नीचे <strong>'आज की स्थिति तुरंत पोर्टल पर लाइव करें'</strong> बटन दबाकर 'हाँ' पर क्लिक करें।
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-
-            {/* Current Live Status Card */}
-            {liveAvailability && (
-              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: STATUS_LABELS[liveAvailability.status]?.bg || '#f1f5f9' }}
-                  >
-                    {liveAvailability.status === 'available' ? (
-                      <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-                    ) : (
-                      <XCircle className="w-6 h-6 text-rose-600" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 font-devanagari">
-                        वर्तमान में वेबसाइट पर लाइव:
-                      </span>
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                    </div>
-                    <div className="text-base sm:text-lg font-extrabold font-devanagari text-slate-900">
-                      {STATUS_LABELS[liveAvailability.status]?.title || 'अज्ञात स्थिति'}
-                      <span className="text-xs font-normal text-slate-500 ml-2">
-                        ({STATUS_LABELS[liveAvailability.status]?.subtitle})
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-right sm:text-right w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-0 border-slate-100">
-                  <div className="text-[11px] text-slate-400 font-devanagari">तारीख: {todayHindi}</div>
-                  <button
-                    type="button"
-                    onClick={onViewPublic}
-                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold font-devanagari inline-flex items-center gap-1 mt-0.5"
-                  >
-                    <span>पोर्टल पर देखें</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Unsaved Changes Banner */}
             {hasUnsavedChanges && (
@@ -916,7 +622,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                 <span className="text-[11px] font-semibold text-slate-500 font-devanagari">1-क्लिक चयन</span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* 1. Available */}
                 <button
                   type="button"
@@ -956,77 +662,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                   <strong className="block text-base font-bold font-devanagari text-rose-900">उपलब्ध नहीं हैं</strong>
                   <span className="text-xs text-slate-600 font-devanagari">शासकीय दौरा / बैठक में</span>
                 </button>
-
-                {/* 3. Pending */}
-                <button
-                  type="button"
-                  onClick={() => handleSelectStatus('confirmation_pending')}
-                  className={`p-4 rounded-xl border-2 text-left transition-all relative ${
-                    status === 'confirmation_pending'
-                      ? 'border-amber-500 bg-amber-50/70 text-amber-950 ring-2 ring-amber-400 shadow-md'
-                      : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
-                  }`}
-                >
-                  {status === 'confirmation_pending' && (
-                    <span className="absolute top-2.5 right-2.5 bg-amber-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full font-devanagari flex items-center gap-1">
-                      <Check className="w-3 h-3" /> चयनित
-                    </span>
-                  )}
-                  <div className="w-3.5 h-3.5 rounded-full bg-amber-500 mb-2"></div>
-                  <strong className="block text-base font-bold font-devanagari">पुष्टि बाकी है</strong>
-                  <span className="text-xs text-slate-600 font-devanagari">समय प्रतीक्षित है</span>
-                </button>
-
-                {/* 4. Time Changed */}
-                <button
-                  type="button"
-                  onClick={() => handleSelectStatus('time_changed')}
-                  className={`p-4 rounded-xl border-2 text-left transition-all relative ${
-                    status === 'time_changed'
-                      ? 'border-blue-500 bg-blue-50/70 text-blue-950 ring-2 ring-blue-400 shadow-md'
-                      : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
-                  }`}
-                >
-                  {status === 'time_changed' && (
-                    <span className="absolute top-2.5 right-2.5 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full font-devanagari flex items-center gap-1">
-                      <Check className="w-3 h-3" /> चयनित
-                    </span>
-                  )}
-                  <div className="w-3.5 h-3.5 rounded-full bg-blue-500 mb-2"></div>
-                  <strong className="block text-base font-bold font-devanagari">समय परिवर्तित</strong>
-                  <span className="text-xs text-slate-600 font-devanagari">नया समय तय</span>
-                </button>
-              </div>
-
-              {/* Timing verification toggle */}
-              <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">
-                <span className="text-xs font-semibold text-slate-700 font-devanagari">
-                  समय की प्रामाणिकता (Status Tag):
-                </span>
-                <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => { setTimingType('confirmed'); setHasUnsavedChanges(true); }}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all font-devanagari ${
-                      timingType === 'confirmed'
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    ✓ पुष्ट समय (Confirmed)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setTimingType('tentative'); setHasUnsavedChanges(true); }}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all font-devanagari ${
-                      timingType === 'tentative'
-                        ? 'bg-amber-600 text-white shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    ⏳ प्रस्तावित समय (Tentative)
-                  </button>
-                </div>
               </div>
             </div>
 
@@ -1073,210 +708,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1 font-devanagari">
-                    वैकल्पिक जनसुनवाई का समय व स्थान:
+                    वैकल्पिक जनसुनवाई का समय:
                   </label>
-                  <input
-                    type="text"
-                    value={alternativeTiming}
-                    onChange={(e) => { setAlternativeTiming(e.target.value); setHasUnsavedChanges(true); }}
-                    placeholder="दोपहर 12:00 बजे से 01:00 बजे तक (कक्ष संख्या 4)"
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white font-devanagari focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  />
+                  <div className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-slate-50 font-devanagari font-semibold text-slate-700 flex items-center justify-between">
+                    <span>कार्यालय समय</span>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">स्थायी</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* ── STEP 3: Time Slots with Fast Presets ── */}
+            {/* ── STEP 3: Fixed Office Hours Hearing Schedule ── */}
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                <div>
-                  <h3 className="text-sm sm:text-base font-extrabold text-slate-900 font-devanagari flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">3</span>
-                    <Clock className="w-4 h-4 text-police-700" />
-                    <span>जनसुनवाई समय सत्र (Meeting Slots):</span>
-                  </h3>
-                  <p className="text-xs text-slate-500 font-devanagari">
-                    नागरिकों को दिखाए जाने वाले आधिकारिक समय
-                  </p>
-                </div>
-
-                {/* Quick Presets Buttons */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] font-bold text-slate-400 font-devanagari mr-1">त्वरित समय:</span>
-                  <button
-                    type="button"
-                    onClick={() => applySlotsPreset('standard')}
-                    className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-800 px-2.5 py-1 rounded-lg border border-slate-300 font-devanagari font-semibold"
-                  >
-                    ⚡ दोनों सत्र
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applySlotsPreset('morning')}
-                    className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-800 px-2.5 py-1 rounded-lg border border-slate-300 font-devanagari font-semibold"
-                  >
-                    ⚡ केवल प्रातः
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applySlotsPreset('evening')}
-                    className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-800 px-2.5 py-1 rounded-lg border border-slate-300 font-devanagari font-semibold"
-                  >
-                    ⚡ केवल सायं
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applySlotsPreset('none')}
-                    className="text-[11px] bg-rose-50 hover:bg-rose-100 text-rose-700 px-2 py-1 rounded-lg border border-rose-200 font-devanagari"
-                  >
-                    रद्द
-                  </button>
-                </div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">3</span>
+                <Clock className="w-4 h-4 text-police-700" />
+                <h3 className="text-sm sm:text-base font-extrabold text-slate-900 font-devanagari">
+                  जनसुनवाई समय (Hearing Schedule):
+                </h3>
               </div>
-
-              {slots.length === 0 ? (
-                <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed font-devanagari">
-                  आज कोई समय सत्र निर्धारित नहीं है।
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {slots.map((slot, idx) => (
-                    <div 
-                      key={slot.id || idx}
-                      className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap items-center gap-2 sm:gap-4 text-xs"
-                    >
-                      <input
-                        type="text"
-                        value={slot.slot_label}
-                        onChange={(e) => handleUpdateSlot(idx, 'slot_label', e.target.value)}
-                        placeholder="सत्र नाम (उदा. प्रातः कालीन)"
-                        className="p-2 rounded-lg border border-slate-300 w-full sm:w-40 text-xs bg-white font-devanagari font-semibold"
-                      />
-
-                      <div className="flex items-center gap-1">
-                        <span className="text-slate-500 font-devanagari">से:</span>
-                        <input
-                          type="text"
-                          value={slot.start_time}
-                          onChange={(e) => handleUpdateSlot(idx, 'start_time', e.target.value)}
-                          placeholder="10:30 AM"
-                          className="p-2 rounded-lg border border-slate-300 w-24 text-xs bg-white text-center font-bold"
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <span className="text-slate-500 font-devanagari">तक:</span>
-                        <input
-                          type="text"
-                          value={slot.end_time}
-                          onChange={(e) => handleUpdateSlot(idx, 'end_time', e.target.value)}
-                          placeholder="01:00 PM"
-                          className="p-2 rounded-lg border border-slate-300 w-24 text-xs bg-white text-center font-bold"
-                        />
-                      </div>
-
-                      <select
-                        value={slot.slot_status}
-                        onChange={(e) => handleUpdateSlot(idx, 'slot_status', e.target.value)}
-                        className="p-2 rounded-lg border border-slate-300 text-xs bg-white font-devanagari"
-                      >
-                        <option value="confirmed">पुष्ट (Confirmed)</option>
-                        <option value="tentative">प्रस्तावित (Tentative)</option>
-                        <option value="cancelled">रद्द (Cancelled)</option>
-                      </select>
-
-                      <button
-                        type="button"
-                        onClick={() => triggerDeleteSlotModal(idx)}
-                        className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg ml-auto transition-colors"
-                        title="सत्र हटाएं"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-3 text-right">
-                <button
-                  type="button"
-                  onClick={handleAddSlot}
-                  className="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs px-3 py-1.5 rounded-lg border border-slate-300 font-semibold font-devanagari"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>अन्य सत्र जोड़ें</span>
-                </button>
-              </div>
-            </div>
-
-            {/* ── STEP 4: Public Message / Advisory ── */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-              <h3 className="text-sm sm:text-base font-extrabold text-slate-900 font-devanagari mb-1 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">4</span>
-                <span>नागरिकों हेतु सार्वजनिक संदेश (Advisory Note):</span>
-              </h3>
-              <p className="text-xs text-slate-500 font-devanagari mb-2">
-                यह संदेश मुख्य कार्ड पर नागरिकों को दिखाई देगा
+              <p className="text-xs text-slate-500 font-devanagari mb-3">
+                नागरिकों को जनसुनवाई का समय हमेशा आधिकारिक कार्यालय समय के अनुसार प्रदर्शित किया जाता है।
               </p>
 
-              <textarea
-                rows={3}
-                value={publicMessage}
-                onChange={(e) => { setPublicMessage(e.target.value); setHasUnsavedChanges(true); }}
-                placeholder="उदा. आज पुलिस अधीक्षक महोदय उपस्थित हैं..."
-                className="w-full p-3 rounded-xl border border-slate-300 text-xs sm:text-sm font-devanagari focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
-            </div>
-
-            {/* ── LIVE PREVIEW: Exactly What Citizens See ── */}
-            <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-lg border border-slate-800">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Eye className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-400 font-devanagari">
-                    नागरिक पूर्वावलोकन (Live Citizen Preview):
-                  </span>
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-emerald-900 font-devanagari">
+                    कार्यालय समय (Official Office Hours)
+                  </p>
+                  <p className="text-[11px] text-emerald-700 font-devanagari mt-0.5">
+                    जनसुनवाई निर्धारित कार्यालय समय में ही संपन्न होती है।
+                  </p>
                 </div>
-                <span className="text-[11px] text-slate-400 font-devanagari">वेबसाइट पर ऐसा दिखेगा</span>
-              </div>
-
-              {/* Mini Simulation of Public Portal Card */}
-              <div className="bg-white text-slate-900 rounded-xl p-4 border border-slate-200 shadow-inner">
-                <div className="flex items-center justify-between border-b pb-2 mb-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wide bg-slate-100 px-2 py-0.5 rounded text-slate-700 font-devanagari">
-                    आज की स्थिति
-                  </span>
-                  <span className="text-[11px] text-slate-500 font-devanagari">{todayHindi}</span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: STATUS_LABELS[status].bg }}>
-                    {status === 'available' ? (
-                      <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-                    ) : (
-                      <XCircle className="w-6 h-6 text-rose-600" />
-                    )}
-                  </div>
-                  <div>
-                    <h4 className="text-base font-extrabold font-devanagari leading-snug">
-                      {STATUS_LABELS[status].title}
-                    </h4>
-                    <p className="text-xs text-slate-500 font-devanagari">
-                      {STATUS_LABELS[status].subtitle}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-3 p-2.5 rounded-lg bg-slate-50 text-xs text-slate-700 font-devanagari border border-slate-200">
-                  <strong>कार्यालय संदेश:</strong> {publicMessage || 'कोई संदेश नहीं'}
-                </div>
-
-                {status === 'unavailable' && selectedAltOfficer && (
-                  <div className="mt-2 p-2.5 rounded-lg bg-blue-50 text-xs text-blue-950 font-devanagari border border-blue-200">
-                    <strong>वैकल्पिक जनसुनवाई:</strong> {selectedAltOfficer.name} ({selectedAltOfficer.designation}) — {alternativeTiming}
-                  </div>
-                )}
+                <span className="text-[10.5px] font-bold bg-white text-emerald-800 px-3 py-1 rounded-full border border-emerald-300 font-devanagari shadow-sm">
+                  ✓ कार्यालय समय
+                </span>
               </div>
             </div>
 
@@ -1286,7 +752,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
                 type="button"
                 onClick={triggerSaveAvailabilityModal}
                 disabled={saving}
-                className="w-full py-4 bg-gradient-to-r from-[#007074] via-teal-700 to-slate-900 hover:from-teal-700 hover:to-slate-950 text-white rounded-2xl font-extrabold text-base sm:text-lg shadow-2xl flex items-center justify-center gap-3 transition-all active:scale-98 disabled:opacity-50 ring-4 ring-teal-500/20 font-devanagari"
+                className="w-full py-4 bg-gradient-to-r from-[#007074] via-teal-700 to-slate-900 hover:from-teal-700 hover:to-slate-950 text-white rounded-2xl font-extrabold text-base sm:text-lg shadow-2xl flex items-center justify-center gap-3 transition-all active:scale-98 disabled:opacity-50 ring-4 ring-teal-500/20 font-devanagari cursor-pointer"
               >
                 <Save className="w-6 h-6 text-amber-300 animate-bounce" />
                 <span>
@@ -1298,240 +764,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
         )}
 
         {/* ═══════════════════════════════════════════════════════
-            TAB 2: PUBLIC NOTICES (Add & Edit Enabled)
-        ═══════════════════════════════════════════════════════ */}
-        {activeTab === 'notices' && (
-          <div className="space-y-6">
-
-            {/* ── Non-Technical Staff Guide Box ── */}
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50/70 rounded-2xl p-4 sm:p-5 border border-amber-200 text-slate-800 shadow-xs">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5 font-bold text-sm shadow-xs">
-                  📢
-                </div>
-                <div className="flex-1 text-xs font-devanagari space-y-1.5">
-                  <div className="font-extrabold text-sm text-amber-950">
-                    सूचनाएं कैसे जारी व संपादित करें? (नोटिस गाइड)
-                  </div>
-                  <p className="text-slate-700 leading-relaxed font-medium">
-                    <strong>उद्देश्य:</strong> जनसुनवाई से जुड़े जरूरी निर्देश, अवकाश की सूचना, अथवा आवश्यक दस्तावेज लाने के आदेश नागरिकों के मोबाइल पर सीधे प्रसारित करने के लिए।
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11.5px]">
-                    <div className="bg-white/90 p-2.5 rounded-xl border border-amber-100 shadow-2xs">
-                      <strong className="text-amber-900 block mb-0.5">1. नई सूचना जारी करें:</strong>
-                      शीर्षक व विस्तृत संदेश लिखकर नीचे 'सूचना प्रकाशित करें' बटन दबाएं।
-                    </div>
-                    <div className="bg-white/90 p-2.5 rounded-xl border border-amber-100 shadow-2xs">
-                      <strong className="text-amber-900 block mb-0.5">2. संपादित करें (Edit):</strong>
-                      किसी भी पुरानी सूचना के सामने 'संपादित करें' बटन दबाकर संशोधन करें।
-                    </div>
-                    <div className="bg-white/90 p-2.5 rounded-xl border border-amber-100 shadow-2xs">
-                      <strong className="text-amber-900 block mb-0.5">3. हटाएं (Delete):</strong>
-                      सूचना की आवश्यकता समाप्त होने पर लाल 'कचरा' बटन से तुरंत हटा दें।
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* ── NOTICE EDIT FORM (Shown when editing a notice) ── */}
-            {editingNotice && (
-              <div className="bg-amber-50/80 rounded-2xl p-5 border-2 border-amber-400 shadow-md animate-in fade-in duration-200">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-bold text-amber-950 font-devanagari flex items-center gap-1.5">
-                    <Edit2 className="w-4 h-4 text-amber-600" />
-                    <span>सूचना संपादित करें (Edit Public Notice):</span>
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={handleCancelEditNotice}
-                    className="text-slate-500 hover:text-slate-800 p-1 rounded-lg transition-colors cursor-pointer"
-                    title="रद्द करें"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <form onSubmit={handleSaveEditNotice} className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
-                      सूचना का शीर्षक:
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={editNoticeTitle}
-                      onChange={(e) => setEditNoticeTitle(e.target.value)}
-                      placeholder="उदा. जनसुनवाई समय में संशोधन / अवकाश सूचना..."
-                      className="w-full p-2.5 rounded-xl border border-amber-300 bg-white text-xs sm:text-sm font-devanagari focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
-                      विस्तृत संदेश:
-                    </label>
-                    <textarea
-                      rows={3}
-                      required
-                      value={editNoticeMsg}
-                      onChange={(e) => setEditNoticeMsg(e.target.value)}
-                      placeholder="नागरिकों के लिए विस्तृत निर्देश या आदेश..."
-                      className="w-full p-2.5 rounded-xl border border-amber-300 bg-white text-xs sm:text-sm font-devanagari focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 font-devanagari">
-                      <span>प्राथमिकता:</span>
-                      <select
-                        value={editNoticePriority}
-                        onChange={(e) => setEditNoticePriority(e.target.value as any)}
-                        className="p-1.5 rounded-lg border border-amber-300 bg-white text-xs font-devanagari"
-                      >
-                        <option value="normal">सामान्य (Normal)</option>
-                        <option value="high">अति महत्वपूर्ण (High)</option>
-                      </select>
-                    </label>
-
-                    <div className="ml-auto flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleCancelEditNotice}
-                        className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs font-devanagari transition-colors cursor-pointer"
-                      >
-                        रद्द करें
-                      </button>
-                      <button
-                        type="submit"
-                        className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm font-devanagari transition-all cursor-pointer"
-                      >
-                        <Save className="w-3.5 h-3.5" />
-                        <span>बदलाव सुरक्षित करें (Save Changes)</span>
-                      </button>
-                    </div>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {/* ── CREATE NEW NOTICE FORM ── */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-              <h3 className="text-sm font-bold text-slate-900 font-devanagari mb-3 flex items-center gap-1.5">
-                <Plus className="w-4 h-4 text-police-700" />
-                <span>नई सार्वजनिक सूचना जारी करें:</span>
-              </h3>
-
-              <form onSubmit={handleCreateNoticeSubmit} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
-                    सूचना का शीर्षक:
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newNoticeTitle}
-                    onChange={(e) => setNewNoticeTitle(e.target.value)}
-                    placeholder="उदा. जनसुनवाई समय में संशोधन / अवकाश सूचना..."
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-devanagari focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 font-devanagari">
-                    विस्तृत संदेश:
-                  </label>
-                  <textarea
-                    rows={3}
-                    required
-                    value={newNoticeMsg}
-                    onChange={(e) => setNewNoticeMsg(e.target.value)}
-                    placeholder="नागरिकों के लिए विस्तृत निर्देश या आदेश..."
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-devanagari focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  />
-                </div>
-
-                <div className="flex items-center gap-4 flex-wrap">
-                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 font-devanagari">
-                    <span>प्राथमिकता:</span>
-                    <select
-                      value={newNoticePriority}
-                      onChange={(e) => setNewNoticePriority(e.target.value as any)}
-                      className="p-1.5 rounded-lg border border-slate-300 text-xs font-devanagari"
-                    >
-                      <option value="normal">सामान्य (Normal)</option>
-                      <option value="high">अति महत्वपूर्ण (High)</option>
-                    </select>
-                  </label>
-
-                  <button
-                    type="submit"
-                    className="ml-auto bg-[#007074] hover:bg-[#005B5E] text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm font-devanagari transition-all cursor-pointer"
-                  >
-                    <Save className="w-3.5 h-3.5 text-amber-300" />
-                    <span>सूचना प्रकाशित करें</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-
-            {/* ── ACTIVE NOTICES LIST (With Edit & Delete) ── */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-              <h3 className="text-sm font-bold text-slate-900 font-devanagari mb-3">
-                सक्रिय सार्वजनिक सूचनाएं ({notices.length}):
-              </h3>
-
-              {notices.length === 0 ? (
-                <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl font-devanagari">
-                  कोई सूचना उपलब्ध नहीं है।
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {notices.map((n) => (
-                    <div key={n.id} className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-start justify-between gap-3 hover:border-slate-300 transition-colors">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-bold text-sm text-slate-900 font-devanagari">{n.title}</h4>
-                          {n.priority === 'high' && (
-                            <span className="text-[10px] bg-rose-500 text-white font-bold px-2 py-0.5 rounded-full font-devanagari">
-                              महत्वपूर्ण
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-600 font-devanagari mt-1 leading-relaxed">{n.message}</p>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        {/* Edit Notice Button */}
-                        <button
-                          onClick={() => handleStartEditNotice(n)}
-                          className="flex items-center gap-1 text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1.5 rounded-lg text-xs font-semibold font-devanagari transition-colors cursor-pointer"
-                          title="संपादित करें"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                          <span>एडिट</span>
-                        </button>
-
-                        {/* Delete Notice Button */}
-                        <button
-                          onClick={() => triggerDeleteNoticeModal(n.id, n.title)}
-                          className="flex items-center gap-1 text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1.5 rounded-lg text-xs font-semibold font-devanagari transition-colors cursor-pointer"
-                          title="हटाएं"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>हटाएं</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════════════
-            TAB 3: OFFICER PROFILES (Add, Edit, Delete & Save)
+            TAB 2: OFFICER PROFILES (Add, Edit, Delete & Save)
         ═══════════════════════════════════════════════════════ */}
         {activeTab === 'officers' && (
           <div className="space-y-5">

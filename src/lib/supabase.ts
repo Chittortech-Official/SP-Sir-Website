@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import type { 
-  Availability, 
-  AvailabilitySlot, 
-  OfficerProfile, 
-  PublicNotice, 
+import type {
+  Availability,
+  AvailabilitySlot,
+  OfficerProfile,
+  PublicNotice,
   AdminAuditLog,
-  PoliceDirectoryRecord 
+  PoliceDirectoryRecord
 } from '../types/database';
 import { POLICE_DIRECTORY_DATA } from '../data/policeDirectory';
 
@@ -13,21 +13,21 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const isSupabaseConfigured = Boolean(
-  supabaseUrl && 
-  supabaseAnonKey && 
-  supabaseUrl.startsWith('http') && 
+  supabaseUrl &&
+  supabaseAnonKey &&
+  supabaseUrl.startsWith('http') &&
   !supabaseUrl.includes('your-project-id')
 );
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        fetch: (url, options = {}) => fetch(url, { ...options, cache: 'no-store' }),
-      },
-      realtime: {
-        heartbeatIntervalMs: 15000, // Keep mobile sockets alive through mobile carrier timeouts
-      }
-    })
+    global: {
+      fetch: (url, options = {}) => fetch(url, { ...options, cache: 'no-store' }),
+    },
+    realtime: {
+      heartbeatIntervalMs: 15000, // Keep mobile sockets alive through mobile carrier timeouts
+    }
+  })
   : null;
 
 // Helper to check valid UUID
@@ -42,7 +42,7 @@ const INITIAL_OFFICERS: OfficerProfile[] = [
     id: 'eaddd30b-4a41-46e6-a9ad-4fb5e61f571d',
     name: 'श्री धर्मेन्द्र सिंह (IPS)',
     designation: 'पुलिस अधीक्षक (SP), चित्तौड़गढ़',
-    phone: '01472-295797',
+    phone: '01472-240006',
     email: 'sp.chittorgarh@rajpolice.gov.in',
     photo_url: undefined,
     description: 'कार्यालय पुलिस अधीक्षक, जिला चित्तौड़गढ़ (राजस्थान)',
@@ -53,7 +53,7 @@ const INITIAL_OFFICERS: OfficerProfile[] = [
     id: '2dfaca8c-369e-4d94-aee7-e04f6e9aac21',
     name: 'श्री गजेन्द्र सिंह जोधा (RPS)',
     designation: 'अतिरिक्त पुलिस अधीक्षक (Addl. SP)',
-    phone: '01472-240222',
+    phone: '94144-81105 / 01472-242603',
     email: undefined,
     photo_url: undefined,
     description: 'कार्यालय अतिरिक्त पुलिस अधीक्षक, चित्तौड़गढ़',
@@ -85,20 +85,11 @@ const INITIAL_SLOTS: AvailabilitySlot[] = [
   {
     id: 'slot-1',
     availability_id: 'avail-today',
-    start_time: '10:30 AM',
-    end_time: '01:00 PM',
+    start_time: 'कार्यालय समय',
+    end_time: '',
     slot_status: 'confirmed',
-    slot_label: 'प्रातः कालीन सत्र',
+    slot_label: 'जनसुनवाई सत्र',
     display_order: 1
-  },
-  {
-    id: 'slot-2',
-    availability_id: 'avail-today',
-    start_time: '03:30 PM',
-    end_time: '05:30 PM',
-    slot_status: 'confirmed',
-    slot_label: 'सायं कालीन सत्र',
-    display_order: 2
   }
 ];
 
@@ -109,7 +100,7 @@ const INITIAL_AVAILABILITY: Availability = {
   timing_type: 'confirmed',
   public_message: 'आज पुलिस अधीक्षक महोदय कार्यालय में उपस्थित हैं। परिवादी जनसुनवाई कक्ष में उपस्थित होकर अपनी समस्या प्रस्तुत कर सकते हैं।',
   alternative_officer_id: '2dfaca8c-369e-4d94-aee7-e04f6e9aac21',
-  alternative_timing: 'दोपहर 12:00 बजे से 01:00 बजे तक',
+  alternative_timing: 'कार्यालय समय',
   published: true,
   updated_at: new Date().toISOString(),
   updated_by: 'PA, SP Office'
@@ -170,7 +161,7 @@ export const notifyAvailabilityUpdated = () => {
         const bc = new BroadcastChannel('sp_portal_sync');
         bc.postMessage({ type: 'SYNC_NOW', time: Date.now() });
         setTimeout(() => {
-          try { bc.close(); } catch {}
+          try { bc.close(); } catch { }
         }, 1500);
       }
 
@@ -195,6 +186,19 @@ export const notifyAvailabilityUpdated = () => {
 
 export const DataService = {
   async getOfficers(): Promise<OfficerProfile[]> {
+    const sanitize = (list: OfficerProfile[]): OfficerProfile[] => {
+      return list.map(o => {
+        if (
+          o.id === 'eaddd30b-4a41-46e6-a9ad-4fb5e61f571d' ||
+          o.name.includes('धर्मेन्द्र') ||
+          (o.designation.includes('SP') && !o.designation.includes('अतिरिक्त') && !o.designation.includes('Addl'))
+        ) {
+          return { ...o, phone: '01472-240006' };
+        }
+        return o;
+      });
+    };
+
     if (supabase) {
       try {
         const { data, error } = await supabase
@@ -203,14 +207,23 @@ export const DataService = {
           .eq('is_active', true)
           .order('display_order', { ascending: true });
         if (!error && data && data.length > 0) {
-          setStored(STORAGE_KEYS.OFFICERS, data);
-          return data;
+          const sanitized = sanitize(data);
+          setStored(STORAGE_KEYS.OFFICERS, sanitized);
+          // Also asynchronously update Supabase DB table officer_profiles with new number
+          void supabase
+            .from('officer_profiles')
+            .update({ phone: '01472-240006' })
+            .ilike('name', '%धर्मेन्द्र%');
+          return sanitized;
         }
       } catch (e) {
         console.warn('Supabase getOfficers failed, using fallback', e);
       }
     }
-    return getStored<OfficerProfile[]>(STORAGE_KEYS.OFFICERS, INITIAL_OFFICERS);
+    const localOfficers = getStored<OfficerProfile[]>(STORAGE_KEYS.OFFICERS, INITIAL_OFFICERS);
+    const updated = sanitize(localOfficers);
+    setStored(STORAGE_KEYS.OFFICERS, updated);
+    return updated;
   },
 
   async getTodayAvailability(): Promise<{ availability: Availability; slots: AvailabilitySlot[]; alternativeOfficer?: OfficerProfile }> {
@@ -234,7 +247,7 @@ export const DataService = {
             .order('schedule_date', { ascending: false })
             .limit(1)
             .maybeSingle();
-          
+
           if (latestData) {
             availData = {
               ...latestData,
@@ -244,21 +257,28 @@ export const DataService = {
         }
 
         if (!availError && availData) {
-          const { data: slotsData } = await supabase
-            .from('availability_slots')
-            .select('*')
-            .eq('availability_id', availData.id)
-            .order('display_order', { ascending: true });
-
           const altOfficer = officers.find(o => o.id === availData.alternative_officer_id);
+          const finalSlots = INITIAL_SLOTS;
 
-          const finalSlots = (slotsData && slotsData.length > 0) ? slotsData : INITIAL_SLOTS;
+          const status = (availData.status === 'confirmation_pending' || !availData.status)
+            ? 'available'
+            : availData.status;
+          const publicMsg = availData.public_message?.includes('पुष्ट होना प्रतीक्षित')
+            ? 'आज पुलिस अधीक्षक महोदय कार्यालय में उपस्थित हैं। परिवादी जनसुनवाई कक्ष में उपस्थित होकर अपनी समस्या प्रस्तुत कर सकते हैं।'
+            : availData.public_message;
 
-          setStored(STORAGE_KEYS.AVAILABILITY, availData);
+          const cleanAvailData: Availability = {
+            ...availData,
+            status,
+            public_message: publicMsg,
+            alternative_timing: 'कार्यालय समय'
+          };
+
+          setStored(STORAGE_KEYS.AVAILABILITY, cleanAvailData);
           setStored(STORAGE_KEYS.SLOTS, finalSlots);
 
           return {
-            availability: availData,
+            availability: cleanAvailData,
             slots: finalSlots,
             alternativeOfficer: altOfficer
           };
@@ -268,10 +288,24 @@ export const DataService = {
       }
     }
 
-    const availability = getStored<Availability>(STORAGE_KEYS.AVAILABILITY, {
+    const rawAvailability = getStored<Availability>(STORAGE_KEYS.AVAILABILITY, {
       ...INITIAL_AVAILABILITY,
       schedule_date: today
     });
+    const status = (rawAvailability.status === 'confirmation_pending' || !rawAvailability.status)
+      ? 'available'
+      : rawAvailability.status;
+    const publicMsg = rawAvailability.public_message?.includes('पुष्ट होना प्रतीक्षित')
+      ? 'आज पुलिस अधीक्षक महोदय कार्यालय में उपस्थित हैं। परिवादी जनसुनवाई कक्ष में उपस्थित होकर अपनी समस्या प्रस्तुत कर सकते हैं।'
+      : rawAvailability.public_message;
+
+    const availability: Availability = {
+      ...rawAvailability,
+      schedule_date: today,
+      status,
+      public_message: publicMsg,
+      alternative_timing: 'कार्यालय समय'
+    };
     const slots = getStored<AvailabilitySlot[]>(STORAGE_KEYS.SLOTS, INITIAL_SLOTS);
     const alternativeOfficer = officers.find(o => o.id === availability.alternative_officer_id);
 
@@ -298,13 +332,13 @@ export const DataService = {
   },
 
   async saveAvailability(
-    availability: Partial<Availability>, 
+    availability: Partial<Availability>,
     slots: AvailabilitySlot[],
     adminName: string = 'PA, SP Office'
   ): Promise<{ success: boolean; error?: string }> {
     const today = getTodayISODate();
     const cleanAlternativeOfficerId: string | null = (availability.alternative_officer_id && isValidUUID(availability.alternative_officer_id))
-      ? availability.alternative_officer_id 
+      ? availability.alternative_officer_id
       : null;
 
     const updatedRecord: Availability = {
@@ -350,21 +384,6 @@ export const DataService = {
         }
 
         if (upsertData) {
-          // Update slots
-          await supabase.from('availability_slots').delete().eq('availability_id', upsertData.id);
-          
-          if (slots.length > 0) {
-            const slotsToInsert = slots.map((s, idx) => ({
-              availability_id: upsertData.id,
-              start_time: s.start_time,
-              end_time: s.end_time,
-              slot_status: s.slot_status,
-              slot_label: s.slot_label,
-              display_order: idx + 1
-            }));
-            await supabase.from('availability_slots').insert(slotsToInsert);
-          }
-
           // Update updatedRecord with new UUID id
           updatedRecord.id = upsertData.id;
           setStored(STORAGE_KEYS.AVAILABILITY, updatedRecord);
@@ -565,6 +584,19 @@ export const DataService = {
 
   // ── Police Directory Database Methods ──
   async getPoliceDirectory(includeInactive: boolean = false): Promise<PoliceDirectoryRecord[]> {
+    const sanitizeDir = (list: PoliceDirectoryRecord[]): PoliceDirectoryRecord[] => {
+      return list.map(item => {
+        if (item.name.includes('धर्मेन्द्र') || item.post.includes('SP CHITTORGARH')) {
+          return {
+            ...item,
+            name: 'श्री धर्मेन्द्र सिंह, I.P.S.',
+            mobile: '94604-25643'
+          };
+        }
+        return item;
+      });
+    };
+
     if (supabase) {
       try {
         let query = supabase
@@ -579,8 +611,13 @@ export const DataService = {
 
         const { data, error } = await query;
         if (!error && data && data.length > 0) {
-          setStored(STORAGE_KEYS.DIRECTORY, data);
-          return data as PoliceDirectoryRecord[];
+          const sanitized = sanitizeDir(data as PoliceDirectoryRecord[]);
+          setStored(STORAGE_KEYS.DIRECTORY, sanitized);
+          void supabase
+            .from('police_directory')
+            .update({ mobile: '94604-25643', name: 'श्री धर्मेन्द्र सिंह, I.P.S.' })
+            .ilike('post', '%SP CHITTORGARH%');
+          return sanitized;
         }
       } catch (err) {
         console.warn('Supabase getPoliceDirectory error, using local fallback', err);
@@ -590,11 +627,12 @@ export const DataService = {
     // LocalStorage or fallback from POLICE_DIRECTORY_DATA
     const cached = getStored<PoliceDirectoryRecord[] | null>(STORAGE_KEYS.DIRECTORY, null);
     if (cached && cached.length > 0) {
-      return includeInactive ? cached : cached.filter(c => c.is_active);
+      const sanitized = sanitizeDir(cached);
+      return includeInactive ? sanitized : sanitized.filter(c => c.is_active);
     }
 
     // Default static mapping of all 92 contacts
-    const defaultRecords: PoliceDirectoryRecord[] = POLICE_DIRECTORY_DATA.map((item, idx) => ({
+    const defaultRecords: PoliceDirectoryRecord[] = sanitizeDir(POLICE_DIRECTORY_DATA.map((item, idx) => ({
       id: item.id,
       name: item.name,
       post: item.post,
@@ -609,7 +647,7 @@ export const DataService = {
       alt_email: item.altEmail || null,
       display_order: idx + 1,
       is_active: true,
-    }));
+    })));
 
     return defaultRecords;
   },

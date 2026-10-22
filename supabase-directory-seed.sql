@@ -37,7 +37,7 @@ BEGIN
             email, alt_email, display_order, is_active
         ) VALUES
         ('श्री गौरव श्रीवास्तव, I.P.S.', 'महानिरीक्षक पुलिस (IGP RANGE UDR)', 'senior', NULL, 'उदयपुर रेंज मुख्यालय', '0294', '2410816', NULL, '97993-93499', NULL, NULL, 1, true),
-        ('श्री चन्द्रेश सिंह, I.P.S.', 'जिला पुलिस अधीक्षक (SP CHITTORGARH)', 'senior', 'चित्तौड़गढ़', 'पुलिस अधीक्षक कार्यालय, चित्तौड़गढ़', '01472', '240006', NULL, '94709-96077', 'sp-chi-rj@nic.in', 'sp.chittorgarh@rajpolice.gov.in', 2, true),
+        ('श्री धर्मेन्द्र सिंह, I.P.S.', 'जिला पुलिस अधीक्षक (SP CHITTORGARH)', 'senior', 'चित्तौड़गढ़', 'पुलिस अधीक्षक कार्यालय, चित्तौड़गढ़', '01472', '240006', NULL, '94604-25643', 'sp-chi-rj@nic.in', NULL, 2, true),
         ('श्री गजेन्द्र सिंह, R.P.S.', 'अतिरिक्त पुलिस अधीक्षक (Addl. SP HQ CGH)', 'senior', 'चित्तौड़गढ़', 'मुख्यालय, चित्तौड़गढ़', '01472', '242603', NULL, '94144-81105', 'asphqcgh@gmail.com', 'addlsp.chittorgarh@rajpolice.gov.in', 3, true),
         ('श्री गोपाल सिंह, R.P.S.', 'अतिरिक्त पुलिस अधीक्षक (Addl. SP RAWATBHATA)', 'senior', 'रावतभाटा', 'रावतभाटा', '01475', '235703', NULL, '94140-84372', 'asprawatbhata@gmail.com', 'addlsp.rawatbhata.chittorgarh@rajpolice.gov.in', 4, true),
         ('श्री सुगनचंद, R.P.S.', 'अतिरिक्त पुलिस अधीक्षक (Addl. SP SIUCAW)', 'senior', 'चित्तौड़गढ़', 'महिला अपराध अन्वेषण सेल (SIUCAW)', NULL, NULL, NULL, '94142-94206', 'siucawcgh@gmail.com', NULL, 5, true),

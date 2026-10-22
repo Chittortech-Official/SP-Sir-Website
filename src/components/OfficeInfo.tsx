@@ -30,16 +30,21 @@ const EMERGENCY_NUMBERS: EmergencyNumber[] = [
     icon: <Globe className="w-4 h-4" />,
   },
   {
-    number: '01472-240055',
-    label: 'कंट्रोल रूम',
-    href: 'tel:01472240055',
+    number: '01472-240088',
+    label: 'कंट्रोल रूम 1',
+    href: 'tel:01472240088',
+    icon: <Radio className="w-4 h-4" />,
+  },
+  {
+    number: '01472-249090',
+    label: 'कंट्रोल रूम 2',
+    href: 'tel:01472249090',
     icon: <Radio className="w-4 h-4" />,
   },
 ];
 
 const CITIZEN_GUIDELINES = [
   'जनसुनवाई कक्ष में उपस्थित होते समय अपनी लिखित शिकायत/परिवाद की <strong>2 सुपाठ्य प्रतियां</strong> साथ रखें।',
-  'पहचान के सत्यापन हेतु मूल <strong>आधार कार्ड अथवा सरकारी पहचान पत्र</strong> साथ लाएं।',
   'यदि पूर्व में किसी थाने/चौकी में रिपोर्ट दर्ज कराई गई हो, तो उसकी <strong>रसीद/FIR प्रति</strong> अवश्य संलग्न करें।',
 ];
 
@@ -89,7 +94,7 @@ export const OfficeInfo: React.FC = () => {
         >
           आपातकालीन सहायता नंबर
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
           {EMERGENCY_NUMBERS.map(({ number, label, href, icon, highlight }) => (
             <a
               key={number}

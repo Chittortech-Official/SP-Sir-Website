@@ -2,15 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Header } from '../components/Header';
 import { TodayAvailabilityCard } from '../components/TodayAvailabilityCard';
 import { AlternativeOfficerCard } from '../components/AlternativeOfficerCard';
-import { HearingSlots } from '../components/HearingSlots';
 import { OfficerProfiles } from '../components/OfficerProfiles';
-import { PublicNotices } from '../components/PublicNotices';
 import { OfficeInfo } from '../components/OfficeInfo';
 import { Footer } from '../components/Footer';
 import { DataService, supabase } from '../lib/supabase';
-import type { Availability, AvailabilitySlot, OfficerProfile, PublicNotice } from '../types/database';
-import { AlertTriangle, RefreshCw, Calendar } from 'lucide-react';
-import { getTodayHindiDate } from '../utils/dateHindi';
+import type { Availability, AvailabilitySlot, OfficerProfile } from '../types/database';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface PublicPortalProps {
   onOpenAdmin: () => void;
@@ -29,24 +26,21 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
   const [alternativeOfficer, setAlternativeOfficer] = useState<OfficerProfile | undefined>();
   const [officers, setOfficers] = useState<OfficerProfile[]>([]);
-  const [notices, setNotices] = useState<PublicNotice[]>([]);
 
   const loadData = async (showInitialLoader = false) => {
     if (showInitialLoader) setLoading(true);
     setDataError(null);
 
     try {
-      const [availRes, officersRes, noticesRes] = await Promise.all([
+      const [availRes, officersRes] = await Promise.all([
         DataService.getTodayAvailability(),
         DataService.getOfficers(),
-        DataService.getPublicNotices(),
       ]);
 
       setAvailability(availRes.availability);
       setSlots(availRes.slots);
       setAlternativeOfficer(availRes.alternativeOfficer);
       setOfficers(officersRes);
-      setNotices(noticesRes);
     } catch (err: unknown) {
       console.error('Failed to load data', err);
       setDataError('नवीनतम जनसुनवाई स्थिति लोड करने में विलंब हो रहा है। डेटा स्थानीय संग्रह से प्रदर्शित किया जा रहा है।');
@@ -92,10 +86,7 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({
         .on('postgres_changes', { event: '*', schema: 'public', table: 'availability' }, () => {
           loadData(false);
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'availability_slots' }, () => {
-          loadData(false);
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'public_notices' }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'officer_profiles' }, () => {
           loadData(false);
         })
         .subscribe();
@@ -132,8 +123,6 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({
     };
   }, []);
 
-  const todayHindi = getTodayHindiDate();
-
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#F0F4F8' }}>
       {/* ── Redesigned Streamlined Header ── */}
@@ -148,17 +137,6 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({
         }}
       >
         <div className="page-container text-center flex flex-col items-center">
-          {/* Today's date pill - Centered */}
-          <div className="flex items-center justify-center gap-2 mb-2.5">
-            <div
-              className="flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[11.5px] font-devanagari font-semibold"
-              style={{ background: 'rgba(201,162,39,0.18)', border: '1px solid rgba(201,162,39,0.4)', color: '#FDE047' }}
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>{todayHindi}</span>
-            </div>
-          </div>
-
           {/* Main tagline - Centered */}
           <h2
             className="font-devanagari font-extrabold text-white leading-tight mb-2 text-center"
@@ -223,29 +201,13 @@ export const PublicPortal: React.FC<PublicPortalProps> = ({
                 </div>
               )}
 
-              {/* 3. Hearing Slots */}
-              {availability && (
-                <div className="animate-fade-in-up stagger-3">
-                  <HearingSlots
-                    slots={slots}
-                    timingType={availability.timing_type}
-                    isUnavailable={availability.status === 'unavailable'}
-                  />
-                </div>
-              )}
-
-              {/* 4. Public Notices */}
-              <div className="animate-fade-in-up stagger-4">
-                <PublicNotices notices={notices} />
-              </div>
-
-              {/* 5. Officer Profiles */}
-              <div className="animate-fade-in-up stagger-5">
+              {/* 3. Officer Profiles */}
+              <div className="animate-fade-in-up stagger-3">
                 <OfficerProfiles officers={officers} />
               </div>
 
-              {/* 6. Office Info & Emergency */}
-              <div className="animate-fade-in-up" style={{ animationDelay: '0.40s' }}>
+              {/* 4. Office Info & Emergency */}
+              <div className="animate-fade-in-up" style={{ animationDelay: '0.30s' }}>
                 <OfficeInfo />
               </div>
             </div>

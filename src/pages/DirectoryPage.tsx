@@ -207,16 +207,13 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
             </span>
             <div>
               <h1 className="text-lg sm:text-xl font-bold font-devanagari text-white leading-tight">
-                थाने, अधिकारी एवं संपर्क निर्देशिका
+                चित्तौड़गढ़ जिला पुलिस संपर्क निर्देशिका
               </h1>
-              <p className="text-[11px] sm:text-xs text-amber-300/90 font-devanagari font-medium mt-0.5">
-                चित्तौड़गढ़ जिला पुलिस — आधिकारिक संपर्क निर्देशिका
-              </p>
             </div>
           </div>
 
-          <p className="text-[11px] sm:text-xs text-slate-300 font-devanagari leading-relaxed">
-            थानाधिकारी, वृत्ताधिकारी, पुलिस अधीक्षक कार्यालय, नियंत्रण कक्ष व पुलिस चौकियों के सीधे संपर्क नंबर व आधिकारिक ईमेल।
+          <p className="text-[11.5px] sm:text-xs text-slate-300 font-devanagari leading-relaxed">
+            पुलिस अधीक्षक (SP), अति. पुलिस अधीक्षक (Addl. SP), वृत्ताधिकारी (CO), थानाधिकारी (SHO) एवं पुलिस कर्मियों के सीधे संपर्क नंबर व आधिकारिक ईमेल।
           </p>
 
           {/* Emergency Helplines Strip */}
@@ -231,12 +228,12 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
               </span>
             </a>
             <a
-              href="tel:01472240055"
+              href="tel:01472240088"
               className="bg-blue-800/95 hover:bg-blue-700 text-white py-1.5 px-1 rounded-xl font-bold flex flex-col items-center justify-center transition active:scale-95 shadow-xs"
             >
               <span className="text-[9px] text-blue-200">कंट्रोल रूम</span>
               <span className="text-[11px] sm:text-xs font-bold flex items-center gap-1 font-mono">
-                <Radio className="w-3 h-3" /> 240055
+                <Radio className="w-3 h-3" /> 240088
               </span>
             </a>
             <a
@@ -362,11 +359,9 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
             </div>
           ) : (
             displayedContacts.map((contact) => {
-              const cleanMobile = contact.mobile?.replace(/[^0-9]/g, '');
               const officePh = contact.office_phone || (contact as any).officePhone;
               const std = contact.std_code || (contact as any).stdCode;
               const circle = contact.circle_name || (contact as any).circleName;
-              const altMail = contact.alt_email || (contact as any).altEmail;
 
               const cleanOfficePhone = officePh?.replace(/[^0-9]/g, '');
               const cleanStdCode = std?.replace(/[^0-9]/g, '');
@@ -443,44 +438,68 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
 
                     {/* Phone Numbers Display */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5 text-xs font-devanagari">
-                      {/* Mobile */}
-                      {contact.mobile && (
-                        <div className="flex items-center justify-between p-2 bg-slate-50/90 rounded-xl border border-slate-200/80">
-                          <div className="flex items-center gap-2">
-                            <span className="p-1.5 bg-emerald-100 text-emerald-700 rounded-lg shrink-0">
-                              <Phone className="w-3.5 h-3.5" />
-                            </span>
-                            <div>
-                              <p className="text-[10px] text-slate-500 font-medium leading-none">मोबाइल (CUG)</p>
-                              <p className="font-bold text-slate-800 tracking-wide font-mono text-xs mt-0.5">
-                                {contact.mobile}
-                              </p>
+                      {/* Mobile or WhatsApp */}
+                      {(() => {
+                        const isSpDharmendra = contact.name.includes('धर्मेन्द्र') || contact.post.includes('SP CHITTORGARH');
+                        const mobileLabel = isSpDharmendra ? 'व्हाट्सएप (WhatsApp)' : 'मोबाइल (CUG)';
+                        const displayMobile = isSpDharmendra ? '94604-25643' : contact.mobile;
+                        const cleanNum = displayMobile ? displayMobile.replace(/[^0-9]/g, '') : '';
+
+                        if (!displayMobile) return null;
+
+                        return (
+                          <div className="flex items-center justify-between p-2 bg-slate-50/90 rounded-xl border border-slate-200/80">
+                            <div className="flex items-center gap-2">
+                              <span className="p-1.5 bg-emerald-100 text-emerald-700 rounded-lg shrink-0">
+                                <Phone className="w-3.5 h-3.5" />
+                              </span>
+                              <div>
+                                <p className="text-[10px] text-slate-500 font-medium leading-none font-devanagari">
+                                  {mobileLabel}
+                                </p>
+                                <p className="font-bold text-slate-800 tracking-wide font-mono text-xs mt-0.5">
+                                  {displayMobile}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={() => copyToClipboard(displayMobile || '', `mob-${contact.id}`)}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 border border-slate-200/80 transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                title="नंबर कॉपी करें"
+                                aria-label="नंबर कॉपी करें"
+                              >
+                                {copiedId === `mob-${contact.id}` ? (
+                                  <Check className="w-4 h-4 text-emerald-600" />
+                                ) : (
+                                  <Copy className="w-4 h-4" />
+                                )}
+                              </button>
+                              {isSpDharmendra ? (
+                                <a
+                                  href={`https://wa.me/91${cleanNum}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white transition-all active:scale-95 shadow-xs cursor-pointer font-bold text-xs"
+                                  title="व्हाट्सएप चैट खोलें"
+                                  aria-label="व्हाट्सएप चैट खोलें"
+                                >
+                                  💬
+                                </a>
+                              ) : (
+                                <a
+                                  href={`tel:${cleanNum}`}
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white transition-all active:scale-95 shadow-xs cursor-pointer"
+                                  title="कॉल करें"
+                                  aria-label="कॉल करें"
+                                >
+                                  <PhoneCall className="w-4 h-4" />
+                                </a>
+                              )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              onClick={() => copyToClipboard(contact.mobile || '', `mob-${contact.id}`)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 border border-slate-200/80 transition-all active:scale-95 cursor-pointer shadow-2xs"
-                              title="मोबाइल नंबर कॉपी करें"
-                              aria-label="मोबाइल नंबर कॉपी करें"
-                            >
-                              {copiedId === `mob-${contact.id}` ? (
-                                <Check className="w-4 h-4 text-emerald-600" />
-                              ) : (
-                                <Copy className="w-4 h-4" />
-                              )}
-                            </button>
-                            <a
-                              href={`tel:${cleanMobile}`}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white transition-all active:scale-95 shadow-xs cursor-pointer"
-                              title="कॉल करें"
-                              aria-label="कॉल करें"
-                            >
-                              <PhoneCall className="w-4 h-4" />
-                            </a>
-                          </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Office Landline */}
                       {officePh && (
@@ -532,81 +551,42 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
                     </div>
 
                     {/* REDESIGNED EMAIL DISPLAY: Clean, Readable, Never Truncated */}
-                    {(contact.email || altMail) && (
+                    {contact.email && (
                       <div className="pt-2 border-t border-slate-100 space-y-1.5">
                         {/* Primary Email */}
-                        {contact.email && (
-                          <div className="bg-slate-50 hover:bg-blue-50/50 rounded-xl p-2.5 border border-slate-200/70 transition-colors">
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                              <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5 font-devanagari">
-                                <Mail className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                                <span>ईमेल (Official Email)</span>
-                              </span>
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  onClick={() => copyToClipboard(contact.email || '', `mail-${contact.id}`)}
-                                  className="w-7 h-7 rounded-md flex items-center justify-center bg-white hover:bg-slate-100 text-slate-500 hover:text-blue-700 border border-slate-200 transition shadow-2xs cursor-pointer"
-                                  title="ईमेल कॉपी करें"
-                                  aria-label="ईमेल कॉपी करें"
-                                >
-                                  {copiedId === `mail-${contact.id}` ? (
-                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                  ) : (
-                                    <Copy className="w-3.5 h-3.5" />
-                                  )}
-                                </button>
-                                <a
-                                  href={`mailto:${contact.email}`}
-                                  className="w-7 h-7 rounded-md flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition active:scale-95 cursor-pointer"
-                                  title="ईमेल भेजें"
-                                  aria-label="ईमेल भेजें"
-                                >
-                                  <Send className="w-3.5 h-3.5" />
-                                </a>
-                              </div>
+                        <div className="bg-slate-50 hover:bg-blue-50/50 rounded-xl p-2.5 border border-slate-200/70 transition-colors">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5 font-devanagari">
+                              <Mail className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                              <span>ईमेल (Official Email)</span>
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => copyToClipboard(contact.email || '', `mail-${contact.id}`)}
+                                className="w-7 h-7 rounded-md flex items-center justify-center bg-white hover:bg-slate-100 text-slate-500 hover:text-blue-700 border border-slate-200 transition shadow-2xs cursor-pointer"
+                                title="ईमेल कॉपी करें"
+                                aria-label="ईमेल कॉपी करें"
+                              >
+                                {copiedId === `mail-${contact.id}` ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                              <a
+                                href={`mailto:${contact.email}`}
+                                className="w-7 h-7 rounded-md flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition active:scale-95 cursor-pointer"
+                                title="ईमेल भेजें"
+                                aria-label="ईमेल भेजें"
+                              >
+                                <Send className="w-3.5 h-3.5" />
+                              </a>
                             </div>
-                            <p className="text-xs font-mono font-semibold text-slate-800 break-all select-all pl-5 leading-relaxed">
-                              {contact.email}
-                            </p>
                           </div>
-                        )}
-
-                        {/* Rajasthan Police Official Govt Email */}
-                        {altMail && (
-                          <div className="bg-slate-50 hover:bg-indigo-50/50 rounded-xl p-2.5 border border-slate-200/70 transition-colors">
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                              <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5 font-devanagari">
-                                <Shield className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                                <span>राजपुलिस मेल (Govt Email)</span>
-                              </span>
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  onClick={() => copyToClipboard(altMail || '', `altmail-${contact.id}`)}
-                                  className="w-7 h-7 rounded-md flex items-center justify-center bg-white hover:bg-slate-100 text-slate-500 hover:text-indigo-700 border border-slate-200 transition shadow-2xs cursor-pointer"
-                                  title="राजपुलिस ईमेल कॉपी करें"
-                                  aria-label="राजपुलिस ईमेल कॉपी करें"
-                                >
-                                  {copiedId === `altmail-${contact.id}` ? (
-                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                  ) : (
-                                    <Copy className="w-3.5 h-3.5" />
-                                  )}
-                                </button>
-                                <a
-                                  href={`mailto:${altMail}`}
-                                  className="w-7 h-7 rounded-md flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs transition active:scale-95 cursor-pointer"
-                                  title="ईमेल भेजें"
-                                  aria-label="ईमेल भेजें"
-                                >
-                                  <Send className="w-3.5 h-3.5" />
-                                </a>
-                              </div>
-                            </div>
-                            <p className="text-xs font-mono font-semibold text-indigo-950 break-all select-all pl-5 leading-relaxed">
-                              {altMail}
-                            </p>
-                          </div>
-                        )}
+                          <p className="text-xs font-mono font-semibold text-slate-800 break-all select-all pl-5 leading-relaxed">
+                            {contact.email}
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>
