@@ -7,7 +7,6 @@ import {
   Edit2,
   Phone,
   Mail,
-  Shield,
   RefreshCw,
   X,
   Save,
@@ -73,7 +72,6 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
   const [formResPhone, setFormResPhone] = useState('');
   const [formMobile, setFormMobile] = useState('');
   const [formEmail, setFormEmail] = useState('');
-  const [formAltEmail, setFormAltEmail] = useState('');
   const [formDisplayOrder, setFormDisplayOrder] = useState<number>(100);
   const [formIsActive, setFormIsActive] = useState<boolean>(true);
   const [formSubmitting, setFormSubmitting] = useState(false);
@@ -108,7 +106,6 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
     setFormResPhone('');
     setFormMobile('');
     setFormEmail('');
-    setFormAltEmail('');
     setFormDisplayOrder(contacts.length + 1);
     setFormIsActive(true);
     setIsFormOpen(true);
@@ -128,7 +125,6 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
     setFormResPhone(c.residence_phone || (c as any).residencePhone || '');
     setFormMobile(c.mobile || '');
     setFormEmail(c.email || '');
-    setFormAltEmail(c.alt_email || (c as any).altEmail || '');
     setFormDisplayOrder(c.display_order ?? 100);
     setFormIsActive(c.is_active ?? true);
     setIsFormOpen(true);
@@ -162,7 +158,6 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
           residence_phone: formResPhone.trim() || null,
           mobile: formMobile.trim() || null,
           email: formEmail.trim() || null,
-          alt_email: formAltEmail.trim() || null,
           display_order: Number(formDisplayOrder) || 100,
           is_active: formIsActive,
         });
@@ -194,7 +189,6 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
           residence_phone: formResPhone.trim() || null,
           mobile: formMobile.trim() || null,
           email: formEmail.trim() || null,
-          alt_email: formAltEmail.trim() || null,
           display_order: Number(formDisplayOrder) || 100,
           is_active: formIsActive,
         });
@@ -265,9 +259,9 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
     setModalState({
       isOpen: true,
       type: 'confirm',
-      title: '92 डिफ़ॉल्ट संपर्क Supabase में सिंक करें?',
+      title: '52 डिफ़ॉल्ट संपर्क Supabase में सिंक करें?',
       message:
-        'यह क्रिया आपके Supabase डेटाबेस में सभी 92 आधिकारिक थानों, अधिकारियों व चौकियों की प्रारंभिक सूची लोड कर देगी। क्या आप आगे बढ़ना चाहते हैं?',
+        'यह क्रिया आपके Supabase डेटाबेस में सभी 52 आधिकारिक थानों व अधिकारियों की प्रारंभिक सूची लोड कर देगी। क्या आप आगे बढ़ना चाहते हैं?',
       confirmText: 'हाँ, सिंक करें',
       cancelText: 'रद्द करें',
       confirmColor: 'teal',
@@ -311,7 +305,9 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
       const circle = c.circle_name || (c as any).circleName;
       const officePh = c.office_phone || (c as any).officePhone;
       const std = c.std_code || (c as any).stdCode;
-      const altMail = c.alt_email || (c as any).altEmail;
+
+      // Exclude outposts and branches/cells completely
+      if (c.category === 'outpost' || c.category === 'branch') return false;
 
       // Circle filter
       if (selectedCircle !== 'सभी वृत' && circle !== selectedCircle) {
@@ -335,7 +331,6 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
         officePh || '',
         std || '',
         c.email || '',
-        altMail || '',
       ]
         .join(' ')
         .toLowerCase();
@@ -370,7 +365,7 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
               </span>
             </div>
             <p className="text-slate-700 leading-relaxed font-medium">
-              <strong>उद्देश्य:</strong> जिले के सभी 92 थानों, वृत्ताधिकारियों, चौकियों व पुलिस अधीक्षक कार्यालय के दूरभाष व ईमेल को अद्यतन रखने हेतु। अधिकारी के तबादले या नंबर बदलने पर यहाँ सीधे एडिट करें — बदलाव तुरंत सार्वजनिक पोर्टल पर लाइव हो जाएगा।
+              <strong>उद्देश्य:</strong> जिले के सभी 52 थानों, वृत्ताधिकारियों व पुलिस अधीक्षक कार्यालय के दूरभाष व ईमेल को अद्यतन रखने हेतु। अधिकारी के तबादले या नंबर बदलने पर यहाँ सीधे एडिट करें — बदलाव तुरंत सार्वजनिक पोर्टल पर लाइव हो जाएगा।
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11.5px]">
               <div className="bg-white/90 p-2.5 rounded-xl border border-blue-100 shadow-2xs">
@@ -383,7 +378,7 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
               </div>
               <div className="bg-white/90 p-2.5 rounded-xl border border-blue-100 shadow-2xs">
                 <strong className="text-blue-900 block mb-0.5">3. 1-क्लिक डेटाबेस सिंक:</strong>
-                यदि टेबल खाली है तो '92 संपर्क सिंक करें' बटन से पूरा डेटा स्वतः भरें।
+                यदि टेबल खाली है तो '52 संपर्क सिंक करें' बटन से पूरा डेटा स्वतः भरें।
               </div>
             </div>
           </div>
@@ -412,10 +407,10 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
               onClick={handleSyncDefaults}
               disabled={isSyncing}
               className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 border border-slate-300 font-devanagari transition-all cursor-pointer"
-              title="यदि डेटाबेस खाली हो तो 92 संपर्कों को सिंक करें"
+              title="यदि डेटाबेस खाली हो तो 52 संपर्कों को सिंक करें"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>92 डिफ़ॉल्ट सिंक करें</span>
+              <span>52 डिफ़ॉल्ट सिंक करें</span>
             </button>
 
             {/* + Add New Contact Button */}
@@ -479,8 +474,6 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
               <option value="senior">⭐ वरिष्ठ अधिकारी (SP / Addl SP)</option>
               <option value="circle">🎯 वृत्ताधिकारी (CO)</option>
               <option value="station">🏢 थानाधिकारी (SHO)</option>
-              <option value="outpost">🚩 पुलिस चौकियां (Outposts)</option>
-              <option value="branch">⚙️ शाखाएं व सेल (Control Room, Cyber)</option>
             </select>
           </div>
         </div>
@@ -548,8 +541,6 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
                     <option value="senior">वरिष्ठ अधिकारी (Senior)</option>
                     <option value="circle">वृत्ताधिकारी - CO (Circle)</option>
                     <option value="station">थानाधिकारी - SHO (Station)</option>
-                    <option value="outpost">पुलिस चौकी (Outpost)</option>
-                    <option value="branch">शाखाएं व सेल (Branch)</option>
                   </select>
                 </div>
 
@@ -630,27 +621,13 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
                 </div>
 
                 {/* Official Email */}
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block font-bold text-slate-700 mb-1">आधिकारिक ईमेल (Email)</label>
                   <input
                     type="email"
                     value={formEmail}
                     onChange={(e) => setFormEmail(e.target.value)}
                     placeholder="psbegun@gmail.com"
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
-                  />
-                </div>
-
-                {/* Rajpolice Govt Email */}
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    राजपुलिस मेल (@rajpolice.gov.in)
-                  </label>
-                  <input
-                    type="text"
-                    value={formAltEmail}
-                    onChange={(e) => setFormAltEmail(e.target.value)}
-                    placeholder="ps.begun.chittorgarh@rajpolice.gov.in"
                     className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
                   />
                 </div>
@@ -724,7 +701,6 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
             const circle = c.circle_name || (c as any).circleName;
             const officePh = c.office_phone || (c as any).officePhone;
             const std = c.std_code || (c as any).stdCode;
-            const altMail = c.alt_email || (c as any).altEmail;
 
             return (
               <div
@@ -742,7 +718,7 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
                       </h4>
                       {circle && (
                         <span className="text-[10px] font-semibold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md border border-slate-200 font-devanagari">
-                          वृत: {circle}
+                          {circle}
                         </span>
                       )}
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-md font-devanagari bg-blue-50 text-blue-800 border border-blue-200">
@@ -791,13 +767,6 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
                         <div className="flex items-center gap-1.5 font-mono truncate">
                           <Mail className="w-3 h-3 text-blue-500 shrink-0" />
                           <span className="truncate">{c.email}</span>
-                        </div>
-                      )}
-
-                      {altMail && (
-                        <div className="flex items-center gap-1.5 font-mono truncate">
-                          <Shield className="w-3 h-3 text-indigo-500 shrink-0" />
-                          <span className="truncate">{altMail}</span>
                         </div>
                       )}
                     </div>

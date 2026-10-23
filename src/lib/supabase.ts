@@ -585,16 +585,24 @@ export const DataService = {
   // ── Police Directory Database Methods ──
   async getPoliceDirectory(includeInactive: boolean = false): Promise<PoliceDirectoryRecord[]> {
     const sanitizeDir = (list: PoliceDirectoryRecord[]): PoliceDirectoryRecord[] => {
-      return list.map(item => {
-        if (item.name.includes('धर्मेन्द्र') || item.post.includes('SP CHITTORGARH')) {
-          return {
-            ...item,
-            name: 'श्री धर्मेन्द्र सिंह, I.P.S.',
-            mobile: '94604-25643'
-          };
-        }
-        return item;
-      });
+      return list
+        .filter(item => item.category !== 'outpost' && item.category !== 'branch')
+        .map(item => {
+          if (item.name.includes('नियंत्रण') || item.name.includes('डी.एस.बी')) {
+            return {
+              ...item,
+              location: null
+            };
+          }
+          if (item.name.includes('धर्मेन्द्र') || item.post.includes('SP CHITTORGARH')) {
+            return {
+              ...item,
+              name: 'श्री धर्मेन्द्र सिंह, I.P.S.',
+              mobile: '94604-25643'
+            };
+          }
+          return item;
+        });
     };
 
     if (supabase) {
@@ -602,6 +610,8 @@ export const DataService = {
         let query = supabase
           .from('police_directory')
           .select('*')
+          .neq('category', 'outpost')
+          .neq('category', 'branch')
           .order('display_order', { ascending: true })
           .order('created_at', { ascending: true });
 
@@ -631,7 +641,7 @@ export const DataService = {
       return includeInactive ? sanitized : sanitized.filter(c => c.is_active);
     }
 
-    // Default static mapping of all 92 contacts
+    // Default static mapping of all 52 contacts (excluding outposts)
     const defaultRecords: PoliceDirectoryRecord[] = sanitizeDir(POLICE_DIRECTORY_DATA.map((item, idx) => ({
       id: item.id,
       name: item.name,
@@ -644,7 +654,6 @@ export const DataService = {
       residence_phone: item.residencePhone || null,
       mobile: item.mobile || null,
       email: item.email || null,
-      alt_email: item.altEmail || null,
       display_order: idx + 1,
       is_active: true,
     })));
@@ -676,7 +685,6 @@ export const DataService = {
             residence_phone: contact.residence_phone || null,
             mobile: contact.mobile || null,
             email: contact.email || null,
-            alt_email: contact.alt_email || null,
             display_order: contact.display_order ?? 100,
             is_active: contact.is_active ?? true
           })
@@ -710,6 +718,7 @@ export const DataService = {
         };
         delete payload.id;
         delete payload.created_at;
+        delete payload.alt_email;
 
         const { error } = await supabase
           .from('police_directory')
@@ -767,7 +776,6 @@ export const DataService = {
         residence_phone: item.residencePhone || null,
         mobile: item.mobile || null,
         email: item.email || null,
-        alt_email: item.altEmail || null,
         display_order: idx + 1,
         is_active: true
       }));

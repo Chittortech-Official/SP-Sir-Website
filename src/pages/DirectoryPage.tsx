@@ -28,7 +28,7 @@ interface DirectoryPageProps {
   onOpenInitiative?: () => void;
 }
 
-type CategoryFilter = 'all' | 'senior' | 'circle' | 'station' | 'branch' | 'outpost';
+type CategoryFilter = 'all' | 'senior' | 'circle' | 'station';
 
 export const DirectoryPage: React.FC<DirectoryPageProps> = ({
   onOpenAdmin,
@@ -121,10 +121,12 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
 
     return sourceData.filter((item) => {
       const circle = item.circle_name || (item as any).circleName;
-      const altMail = item.alt_email || (item as any).altEmail;
       const officePh = item.office_phone || (item as any).officePhone;
       const std = item.std_code || (item as any).stdCode;
       const resPh = item.residence_phone || (item as any).residencePhone;
+
+      // 0. Exclude police outposts and branches/cells completely as per requirement
+      if (item.category === 'outpost' || item.category === 'branch') return false;
 
       // 1. Circle dropdown filter
       if (
@@ -139,8 +141,6 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
         if (selectedCategory === 'senior' && item.category !== 'senior') return false;
         if (selectedCategory === 'circle' && item.category !== 'circle') return false;
         if (selectedCategory === 'station' && item.category !== 'station') return false;
-        if (selectedCategory === 'branch' && item.category !== 'branch') return false;
-        if (selectedCategory === 'outpost' && item.category !== 'outpost') return false;
       }
 
       // 3. Free text & phone number search filter
@@ -153,7 +153,6 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
         circle || '',
         item.location || '',
         item.email || '',
-        altMail || '',
         item.mobile || '',
         officePh || '',
         std || '',
@@ -311,8 +310,6 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
                 <option value="senior">वरिष्ठ अधिकारी</option>
                 <option value="circle">वृत्ताधिकारी (CO)</option>
                 <option value="station">थानाधिकारी (SHO)</option>
-                <option value="outpost">पुलिस चौकियां</option>
-                <option value="branch">शाखाएं व सेल</option>
               </select>
             </div>
           </div>
@@ -363,7 +360,7 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
               const std = contact.std_code || (contact as any).stdCode;
               const circle = contact.circle_name || (contact as any).circleName;
 
-              const cleanOfficePhone = officePh?.replace(/[^0-9]/g, '');
+              const cleanOfficePhone = officePh ? (officePh.includes('/') ? officePh.split('/')[0].replace(/[^0-9]/g, '') : officePh.replace(/[^0-9]/g, '')) : '';
               const cleanStdCode = std?.replace(/[^0-9]/g, '');
               const landlineDial = cleanStdCode && cleanOfficePhone ? `${cleanStdCode}${cleanOfficePhone}` : cleanOfficePhone;
 
@@ -410,11 +407,6 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
                               थानाधिकारी (SHO)
                             </span>
                           )}
-                          {contact.category === 'outpost' && (
-                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-200 text-[10px] font-bold rounded-md font-devanagari">
-                              पुलिस चौकी
-                            </span>
-                          )}
                         </div>
                         <p className="text-xs font-semibold text-blue-900 font-devanagari">
                           {contact.post}
@@ -423,7 +415,7 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
 
                       {circle && (
                         <span className="shrink-0 px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] sm:text-[11px] font-semibold rounded-lg font-devanagari border border-slate-200">
-                          वृत: {circle}
+                          {circle}
                         </span>
                       )}
                     </div>
