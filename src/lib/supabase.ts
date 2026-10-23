@@ -780,6 +780,12 @@ export const DataService = {
         is_active: true
       }));
 
+      // Cleanly clear existing directory records to prevent duplicate records (e.g. 47 + 47 = 94)
+      await supabase
+        .from('police_directory')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+
       const { data, error } = await supabase
         .from('police_directory')
         .insert(recordsToInsert)

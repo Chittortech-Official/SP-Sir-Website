@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { DataService, isSupabaseConfigured } from '../lib/supabase';
 import type { PoliceDirectoryRecord, DirectoryCategory } from '../types/database';
-import { POLICE_CIRCLES } from '../data/policeDirectory';
+import { POLICE_CIRCLES, POLICE_DIRECTORY_DATA } from '../data/policeDirectory';
 import { ActionFeedbackModal } from './ActionFeedbackModal';
 import type { ModalType } from './AdminDashboard';
 
@@ -254,15 +254,18 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
     });
   };
 
-  // Seed Default 92 Contacts
+  // Seed Default Contacts with Clean Replace (No duplicates)
   const handleSyncDefaults = async () => {
+    const defaultCount = POLICE_DIRECTORY_DATA.length;
     setModalState({
       isOpen: true,
       type: 'confirm',
-      title: '52 डिफ़ॉल्ट संपर्क Supabase में सिंक करें?',
+      title: `${defaultCount} डिफ़ॉल्ट संपर्क री-स्टोर करें?`,
       message:
-        'यह क्रिया आपके Supabase डेटाबेस में सभी 52 आधिकारिक थानों व अधिकारियों की प्रारंभिक सूची लोड कर देगी। क्या आप आगे बढ़ना चाहते हैं?',
-      confirmText: 'हाँ, सिंक करें',
+        contacts.length > 0
+          ? `डेटाबेस में अभी ${contacts.length} संपर्क मौजूद हैं। यह क्रिया पुराने डेटा को साफ़ करके सभी ${defaultCount} आधिकारिक संपर्क नए सिरे से री-स्टोर करेगी (कोई डुप्लिकेट नहीं बनेगा)। क्या आप आगे बढ़ना चाहते हैं?`
+          : `यह क्रिया आपके Supabase डेटाबेस में सभी ${defaultCount} आधिकारिक थानों व अधिकारियों की सूची लोड कर देगी। क्या आप आगे बढ़ना चाहते हैं?`,
+      confirmText: 'हाँ, री-स्टोर करें',
       cancelText: 'रद्द करें',
       confirmColor: 'teal',
       onCancel: closeModal,
@@ -378,7 +381,7 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
               </div>
               <div className="bg-white/90 p-2.5 rounded-xl border border-blue-100 shadow-2xs">
                 <strong className="text-blue-900 block mb-0.5">3. 1-क्लिक डेटाबेस सिंक:</strong>
-                यदि टेबल खाली है तो '52 संपर्क सिंक करें' बटन से पूरा डेटा स्वतः भरें।
+                यदि टेबल खाली है तो '47 संपर्क री-स्टोर करें' बटन से पूरा डेटा स्वतः भरें।
               </div>
             </div>
           </div>
@@ -407,10 +410,10 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
               onClick={handleSyncDefaults}
               disabled={isSyncing}
               className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 border border-slate-300 font-devanagari transition-all cursor-pointer"
-              title="यदि डेटाबेस खाली हो तो 52 संपर्कों को सिंक करें"
+              title="यदि डेटाबेस खाली हो तो 47 संपर्कों को री-स्टोर करें"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>52 डिफ़ॉल्ट सिंक करें</span>
+              <span>47 डिफ़ॉल्ट री-स्टोर करें</span>
             </button>
 
             {/* + Add New Contact Button */}
