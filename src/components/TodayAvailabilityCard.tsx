@@ -139,7 +139,7 @@ export const TodayAvailabilityCard: React.FC<TodayAvailabilityCardProps> = ({
             className="rounded-xl p-4 text-center text-sm font-devanagari text-slate-600"
             style={{ background: '#F8FAFC', border: '1px dashed #CBD5E1' }}
           >
-            आज जनसुनवाई उपलब्ध नहीं है। कल पुनः जांच करें।
+            आज जनसुनवाई के लिए एसपी साहब कार्यालय में उपलब्ध नहीं हैं
           </div>
         )}
       </div>

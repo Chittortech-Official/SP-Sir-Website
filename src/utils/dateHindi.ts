@@ -81,7 +81,7 @@ export function getStatusConfig(status: string) {
       return {
         label: 'आज जनसुनवाई के लिए उपलब्ध नहीं',
         shortLabel: 'उपलब्ध नहीं',
-        subText: 'विशेष शासकीय कार्य / दौरे के कारण SP सर आज जनसुनवाई के लिए उपलब्ध नहीं हैं',
+        subText: 'SP सर आज जनसुनवाई के लिए कार्यालय में उपलब्ध नहीं हैं',
         badgeBg: 'bg-rose-50 border-rose-500 text-rose-900',
         cardBorder: 'border-rose-500',
         headerBg: 'from-rose-700 via-rose-800 to-slate-900',

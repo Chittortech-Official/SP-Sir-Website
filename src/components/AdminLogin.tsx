@@ -201,20 +201,17 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess }) => {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="pa.spchittorgarh@rajpolice.gov.in"
+                    placeholder="Enter admin email..."
                     className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#132238] border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 font-sans transition-all"
                   />
                 </div>
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="mb-1.5">
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 font-sans">
                     PASSWORD
                   </label>
-                  <span className="text-[10px] bg-slate-800 text-amber-300 px-2 py-0.5 rounded font-mono border border-slate-700">
-                    PIN: 123456
-                  </span>
                 </div>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />

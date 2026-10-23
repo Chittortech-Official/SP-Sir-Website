@@ -157,7 +157,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onView
         applySlotsPreset();
       }
     } else if (newStatus === 'unavailable') {
-      setPublicMessage('आज पुलिस अधीक्षक महोदय शासकीय कार्य / दौरे पर होने के कारण कार्यालय में जनसुनवाई हेतु उपलब्ध नहीं रहेंगे।');
+      setPublicMessage('आज जनसुनवाई के लिए एसपी साहब कार्यालय में उपलब्ध नहीं हैं।');
       // Default to Additional SP if available
       const addlSp = officers.find(o => o.designation.includes('अतिरिक्त') || o.designation.includes('Addl'));
       if (addlSp && !alternativeOfficerId) {
