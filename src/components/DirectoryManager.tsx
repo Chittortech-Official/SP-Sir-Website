@@ -309,8 +309,8 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
       const officePh = c.office_phone || (c as any).officePhone;
       const std = c.std_code || (c as any).stdCode;
 
-      // Exclude outposts and branches/cells completely
-      if (c.category === 'outpost' || c.category === 'branch') return false;
+      // Exclude outposts completely
+      if (c.category === 'outpost') return false;
 
       // Circle filter
       if (selectedCircle !== 'सभी वृत' && circle !== selectedCircle) {
@@ -474,9 +474,10 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
               className="w-full py-2 px-2.5 bg-slate-50 border border-slate-200 focus:border-blue-600 rounded-xl text-xs font-devanagari font-semibold text-slate-700 focus:outline-none"
             >
               <option value="all">👮 सभी श्रेणियां (All Posts)</option>
-              <option value="senior">⭐ वरिष्ठ अधिकारी (SP / Addl SP)</option>
+              <option value="senior">⭐ वरिष्ठ अधिकारी (IGP / SP / ASP / Addl SP / Dy SP)</option>
               <option value="circle">🎯 वृत्ताधिकारी (CO)</option>
               <option value="station">🏢 थानाधिकारी (SHO)</option>
+              <option value="branch">🛡️ प्रभारी / शाखा (Incharge / Branch)</option>
             </select>
           </div>
         </div>
@@ -541,9 +542,10 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
                     onChange={(e) => setFormCategory(e.target.value as DirectoryCategory)}
                     className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-semibold"
                   >
-                    <option value="senior">वरिष्ठ अधिकारी (Senior)</option>
+                    <option value="senior">वरिष्ठ अधिकारी (IGP / SP / ASP / Addl SP / Dy SP)</option>
                     <option value="circle">वृत्ताधिकारी - CO (Circle)</option>
                     <option value="station">थानाधिकारी - SHO (Station)</option>
+                    <option value="branch">प्रभारी / शाखा (Incharge / Branch)</option>
                   </select>
                 </div>
 
@@ -724,16 +726,26 @@ export const DirectoryManager: React.FC<DirectoryManagerProps> = ({ onContactsUp
                           {circle}
                         </span>
                       )}
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md font-devanagari bg-blue-50 text-blue-800 border border-blue-200">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md font-devanagari ${
+                        c.category === 'senior'
+                          ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                          : c.category === 'circle'
+                          ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                          : c.category === 'station'
+                          ? 'bg-indigo-50 text-indigo-800 border border-indigo-200'
+                          : c.category === 'branch'
+                          ? 'bg-cyan-50 text-cyan-800 border border-cyan-200'
+                          : 'bg-slate-50 text-slate-800 border border-slate-200'
+                      }`}>
                         {c.category === 'senior'
                           ? 'वरिष्ठ अधिकारी'
                           : c.category === 'circle'
                           ? 'वृत्ताधिकारी'
                           : c.category === 'station'
                           ? 'थानाधिकारी'
-                          : c.category === 'outpost'
-                          ? 'चौकी'
-                          : 'शाखा'}
+                          : c.category === 'branch'
+                          ? 'प्रभारी'
+                          : 'चौकी'}
                       </span>
                       {!c.is_active && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-md font-devanagari bg-rose-100 text-rose-800 border border-rose-200">

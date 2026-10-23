@@ -586,7 +586,7 @@ export const DataService = {
   async getPoliceDirectory(includeInactive: boolean = false): Promise<PoliceDirectoryRecord[]> {
     const sanitizeDir = (list: PoliceDirectoryRecord[]): PoliceDirectoryRecord[] => {
       return list
-        .filter(item => item.category !== 'outpost' && item.category !== 'branch')
+        .filter(item => item.category !== 'outpost')
         .map(item => {
           if (item.name.includes('नियंत्रण') || item.name.includes('डी.एस.बी')) {
             return {
@@ -611,7 +611,6 @@ export const DataService = {
           .from('police_directory')
           .select('*')
           .neq('category', 'outpost')
-          .neq('category', 'branch')
           .order('display_order', { ascending: true })
           .order('created_at', { ascending: true });
 

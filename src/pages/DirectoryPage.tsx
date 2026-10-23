@@ -28,7 +28,7 @@ interface DirectoryPageProps {
   onOpenInitiative?: () => void;
 }
 
-type CategoryFilter = 'all' | 'senior' | 'circle' | 'station';
+type CategoryFilter = 'all' | 'senior' | 'circle' | 'station' | 'branch';
 
 export const DirectoryPage: React.FC<DirectoryPageProps> = ({
   onOpenAdmin,
@@ -125,8 +125,8 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
       const std = item.std_code || (item as any).stdCode;
       const resPh = item.residence_phone || (item as any).residencePhone;
 
-      // 0. Exclude police outposts and branches/cells completely as per requirement
-      if (item.category === 'outpost' || item.category === 'branch') return false;
+      // 0. Exclude police outposts completely as per requirement
+      if (item.category === 'outpost') return false;
 
       // 1. Circle dropdown filter
       if (
@@ -141,6 +141,7 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
         if (selectedCategory === 'senior' && item.category !== 'senior') return false;
         if (selectedCategory === 'circle' && item.category !== 'circle') return false;
         if (selectedCategory === 'station' && item.category !== 'station') return false;
+        if (selectedCategory === 'branch' && item.category !== 'branch') return false;
       }
 
       // 3. Free text & phone number search filter
@@ -307,9 +308,10 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
                 className="w-full py-2 px-2.5 bg-slate-50 hover:bg-slate-100/70 border border-slate-200 focus:border-blue-600 focus:bg-white rounded-xl text-xs font-devanagari font-semibold text-slate-800 focus:outline-none transition shadow-2xs cursor-pointer"
               >
                 <option value="all">सभी पद</option>
-                <option value="senior">वरिष्ठ अधिकारी</option>
+                <option value="senior">वरिष्ठ अधिकारी (IGP / SP / ASP / Addl SP / Dy SP)</option>
                 <option value="circle">वृत्ताधिकारी (CO)</option>
                 <option value="station">थानाधिकारी (SHO)</option>
+                <option value="branch">प्रभारी / शाखा (Incharge)</option>
               </select>
             </div>
           </div>
@@ -405,6 +407,11 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
                           {contact.category === 'station' && (
                             <span className="px-2 py-0.5 bg-indigo-100 text-indigo-900 border border-indigo-200 text-[10px] font-bold rounded-md font-devanagari">
                               थानाधिकारी (SHO)
+                            </span>
+                          )}
+                          {contact.category === 'branch' && (
+                            <span className="px-2 py-0.5 bg-cyan-100 text-cyan-900 border border-cyan-300 text-[10px] font-bold rounded-md font-devanagari">
+                              प्रभारी
                             </span>
                           )}
                         </div>
