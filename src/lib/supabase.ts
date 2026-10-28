@@ -209,11 +209,6 @@ export const DataService = {
         if (!error && data && data.length > 0) {
           const sanitized = sanitize(data);
           setStored(STORAGE_KEYS.OFFICERS, sanitized);
-          // Also asynchronously update Supabase DB table officer_profiles with new number
-          void supabase
-            .from('officer_profiles')
-            .update({ phone: '01472-240006' })
-            .ilike('name', '%धर्मेन्द्र%');
           return sanitized;
         }
       } catch (e) {
@@ -594,13 +589,6 @@ export const DataService = {
               location: null
             };
           }
-          if (item.name.includes('धर्मेन्द्र') || item.post.includes('SP CHITTORGARH')) {
-            return {
-              ...item,
-              name: 'श्री धर्मेन्द्र सिंह, I.P.S.',
-              mobile: '94604-25643'
-            };
-          }
           return item;
         });
     };
@@ -622,10 +610,6 @@ export const DataService = {
         if (!error && data && data.length > 0) {
           const sanitized = sanitizeDir(data as PoliceDirectoryRecord[]);
           setStored(STORAGE_KEYS.DIRECTORY, sanitized);
-          void supabase
-            .from('police_directory')
-            .update({ mobile: '94604-25643', name: 'श्री धर्मेन्द्र सिंह, I.P.S.' })
-            .ilike('post', '%SP CHITTORGARH%');
           return sanitized;
         }
       } catch (err) {

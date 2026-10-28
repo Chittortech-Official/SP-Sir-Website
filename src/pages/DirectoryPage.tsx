@@ -67,10 +67,22 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
     window.addEventListener('sp_availability_changed', handleSync);
     window.addEventListener('storage', handleSync);
 
+    // Cross-tab broadcast channel for instant sub-second sync
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      bc = new BroadcastChannel('sp_portal_sync');
+      bc.onmessage = () => {
+        fetchContacts();
+      };
+    }
+
     return () => {
       isMounted = false;
       window.removeEventListener('sp_availability_changed', handleSync);
       window.removeEventListener('storage', handleSync);
+      if (bc) {
+        try { bc.close(); } catch { }
+      }
     };
   }, []);
 
@@ -441,7 +453,7 @@ export const DirectoryPage: React.FC<DirectoryPageProps> = ({
                       {(() => {
                         const isSpDharmendra = contact.name.includes('धर्मेन्द्र') || contact.post.includes('SP CHITTORGARH');
                         const mobileLabel = isSpDharmendra ? 'व्हाट्सएप (WhatsApp)' : 'मोबाइल (CUG)';
-                        const displayMobile = isSpDharmendra ? '94604-25643' : contact.mobile;
+                        const displayMobile = contact.mobile;
                         const cleanNum = displayMobile ? displayMobile.replace(/[^0-9]/g, '') : '';
 
                         if (!displayMobile) return null;

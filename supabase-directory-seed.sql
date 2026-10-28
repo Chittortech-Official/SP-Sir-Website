@@ -25,7 +25,13 @@ CREATE TABLE IF NOT EXISTS police_directory (
 CREATE INDEX IF NOT EXISTS idx_police_dir_category ON police_directory(category);
 CREATE INDEX IF NOT EXISTS idx_police_dir_circle ON police_directory(circle_name);
 CREATE INDEX IF NOT EXISTS idx_police_dir_active ON police_directory(is_active, display_order);
-ALTER TABLE police_directory DISABLE ROW LEVEL SECURITY;
+ALTER TABLE police_directory ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public can view directory" ON police_directory
+    FOR SELECT TO anon, authenticated USING (is_active = true);
+
+CREATE POLICY "Admins can manage directory" ON police_directory
+    FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Seed data: Insert only if table is currently empty
 DO $$

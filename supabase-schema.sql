@@ -73,13 +73,42 @@ CREATE TABLE IF NOT EXISTS admin_audit_logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ── 6. Disable Row Level Security (direct public access) ─────────────────────
--- This allows the anon key to read all published data without RLS complexity.
-ALTER TABLE officer_profiles DISABLE ROW LEVEL SECURITY;
-ALTER TABLE availability DISABLE ROW LEVEL SECURITY;
-ALTER TABLE availability_slots DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public_notices DISABLE ROW LEVEL SECURITY;
-ALTER TABLE admin_audit_logs DISABLE ROW LEVEL SECURITY;
+-- ── 6. Row Level Security (RLS) Configuration ──────────────────────────────
+-- Enable RLS so only authenticated admins can write/delete, while public can only read published data.
+ALTER TABLE officer_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE availability ENABLE ROW LEVEL SECURITY;
+ALTER TABLE availability_slots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public_notices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- 6.1 Public Read Policies (Citizen view)
+CREATE POLICY "Public can view officers" ON officer_profiles
+    FOR SELECT TO anon, authenticated USING (is_active = true);
+
+CREATE POLICY "Public can view availability" ON availability
+    FOR SELECT TO anon, authenticated USING (published = true);
+
+CREATE POLICY "Public can view slots" ON availability_slots
+    FOR SELECT TO anon, authenticated USING (true);
+
+CREATE POLICY "Public can view notices" ON public_notices
+    FOR SELECT TO anon, authenticated USING (published = true);
+
+-- 6.2 Authenticated Admin Policies (Police officers can create/update/delete)
+CREATE POLICY "Admins can manage officers" ON officer_profiles
+    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "Admins can manage availability" ON availability
+    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "Admins can manage slots" ON availability_slots
+    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "Admins can manage notices" ON public_notices
+    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "Admins can manage audit logs" ON admin_audit_logs
+    FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- ── 6.1 Enable Supabase Realtime (Instant Live Updates without Refresh) ────────
 -- Run this so database updates broadcast to all mobile/web users within 1-2 seconds

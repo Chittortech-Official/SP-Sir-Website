@@ -37,30 +37,24 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess }) => {
     const cleanPassword = password.trim();
 
     try {
-      // 1. Try Supabase Auth first
-      if (isSupabaseConfigured && supabase && cleanEmail) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password: cleanPassword,
-        });
-
-        if (!error) {
-          localStorage.setItem('sp_admin_session', 'active');
-          localStorage.setItem('sp_admin_email', cleanEmail);
-          onSuccess();
-          return;
-        }
-      }
-
-      // 2. Verified admin credentials fallback
-      if (cleanEmail === 'paconfi.branchcgh@gmail.com' && cleanPassword === '123456') {
-        localStorage.setItem('sp_admin_session', 'active');
-        localStorage.setItem('sp_admin_email', cleanEmail);
-        onSuccess();
+      if (!isSupabaseConfigured || !supabase) {
+        setErrorMsg('प्रमाणीकरण सेवा वर्तमान में अनुपलब्ध है। कृपया व्यवस्थापक से संपर्क करें।');
         return;
       }
 
-      setErrorMsg('अमान्य ईमेल अथवा पासवर्ड! केवल अधिकृत प्रशासनिक ईमेल (paconfi.branchcgh@gmail.com) द्वारा ही लॉगिन मान्य है।');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword,
+      });
+
+      if (error || !data?.session) {
+        setErrorMsg('अमान्य ईमेल अथवा पासवर्ड। कृपया पुनः प्रयास करें।');
+        return;
+      }
+
+      localStorage.setItem('sp_admin_session', 'active');
+      localStorage.setItem('sp_admin_email', cleanEmail);
+      onSuccess();
     } catch (err: any) {
       setErrorMsg('लॉगिन में त्रुटि: ' + (err.message || 'पुनः प्रयास करें'));
     } finally {

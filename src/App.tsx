@@ -8,6 +8,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { BottomNav } from './components/BottomNav';
 import { SplashScreen } from './components/SplashScreen';
 import type { PublicTab } from './components/BottomNav';
+import { supabase } from './lib/supabase';
 
 type AppRoute = 'admin' | PublicTab;
 
@@ -54,10 +55,21 @@ export function App() {
     window.addEventListener('hashchange', determineRoute);
     window.addEventListener('popstate', determineRoute);
 
-    // Check existing admin session
-    const session = localStorage.getItem('sp_admin_session');
-    if (session === 'active') {
-      setIsAdminAuthenticated(true);
+    // Verify authenticated session cryptographically with Supabase
+    if (supabase) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setIsAdminAuthenticated(Boolean(session?.user));
+      });
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setIsAdminAuthenticated(Boolean(session?.user));
+      });
+
+      return () => {
+        window.removeEventListener('hashchange', determineRoute);
+        window.removeEventListener('popstate', determineRoute);
+        subscription.unsubscribe();
+      };
     }
 
     return () => {
@@ -87,7 +99,14 @@ export function App() {
     }
   };
 
-  const handleAdminLogout = () => {
+  const handleAdminLogout = async () => {
+    if (supabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn('Supabase signOut error:', err);
+      }
+    }
     localStorage.removeItem('sp_admin_session');
     localStorage.removeItem('sp_admin_email');
     setIsAdminAuthenticated(false);
